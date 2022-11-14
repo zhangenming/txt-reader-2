@@ -1,72 +1,115 @@
 import txt from '../txt/欧维'
 import { getWordPositionAll } from './utils'
 import './App.css'
+import { useEffect, useState } from 'react'
 
-type T = {
-  word: string
-  isSpk: boolean
-  selects: string
-}[]
-const txtObj: T = [...txt].map(word => ({ word, isSpk: false, selects: '' }))
+const selection = getSelection()!
 
-// spk
-let spk1 = false
-txtObj.forEach(t => {
-  let spk2 = spk1
-  if (t.word === '“') spk2 = spk1 = true
-  if (t.word === '”') spk1 = false
-  if (spk2) {
-    t.isSpk = true //Modify
-  }
-})
+function gene(selects: string[]) {
+  type T = {
+    word: string
+    isSpk: boolean
+    selects: string
+  }[]
 
-// select
-const selects = ['编辑', '我们', '是']
-selects.forEach(select => {
-  const idxs = getWordPositionAll(txt, select)
-  idxs?.forEach(idx => {
-    txtObj[idx].selects += select + ' ' //Modify
+  let _spk = false
+  const txtObj: T = [...txt].map(word => {
+    // 能不能通过css搞定？
+    let isSpk = _spk
+    if (word === '“') isSpk = _spk = true
+    if (word === '”') _spk = false
+
+    return { word, isSpk, selects: '' }
   })
-})
 
-// reduce合并
-const txtRes = txtObj.reduce(
-  (all, now) => {
-    const pre = all.at(-1)!
-    if (
-      // 需不需要sort一下?
-      String(pre.selects) === String(now.selects) &&
-      pre.isSpk === now.isSpk
-    ) {
-      pre.word += now.word
-    } else {
-      all.push(now)
-    }
+  // select
+  selects.forEach(select => {
+    const idxs = getWordPositionAll(txt, select)
+    idxs?.forEach(idx => {
+      txtObj[idx].selects += select + ' ' //Modify
+    })
+  })
 
-    return all
-  },
-  [{ word: '', isSpk: false, selects: '' }]
-)
+  // reduce合并
+  let key = 0
+  const txtRes = txtObj.reduce(
+    (all, { word, isSpk, selects }) => {
+      key += word.length
+      const pre = all.at(-1)!
+      if (
+        // 需不需要sort一下?
+        String(pre.selects) === String(selects) &&
+        pre.isSpk === isSpk
+      ) {
+        pre.word += word
+      } else {
+        all.push({ word, isSpk, selects, key })
+      }
+
+      return all
+    },
+    [{ word: '', isSpk: false, selects: '', key }]
+  )
+
+  return txtRes
+}
 
 export default function App() {
+  window.onbeforeunload = () => {
+    localStorage.setItem('scroll', String(document.documentElement.scrollTop))
+    localStorage.setItem('selects', JSON.stringify(selects))
+  }
+
+  useEffect(() => {
+    document.documentElement.scrollTop = Number(localStorage.getItem('scroll'))
+  }, [])
+
+  const [selects, SETselects] = useState<string[]>(
+    JSON.parse(String(localStorage.getItem('selects'))) || []
+  )
+
+  const txtRes = gene(selects)
+
+  // add/remove select
+  function selectionHandle() {
+    const select = String(selection)
+    if (!select) return
+    selection.removeAllRanges()
+
+    if (selects.includes(select)) {
+      SETselects(selects.filter(e => e !== select))
+    } else {
+      SETselects([...selects, select])
+
+      const count = getWordPositionAll(txt, select)!.length / select.length
+      console.log(count)
+
+      // // justOne
+      // if (count === 1) {
+      //   setTimeout(() => {
+      //     selects.splice(selects.indexOf(select), 1)
+      //   }, 1000)
+      // }
+
+      // justOneScreen
+      // 判断所有元素是否在屏幕内
+    }
+  }
+
   return (
-    <div id="reader">
-      {txtRes.map(t =>
-        t.isSpk || t.selects ? (
-          <span
-            // {...{
-            //   ...(t.isSpk && { 'data-isSpk': '' }),
-            //   ...(t.selects && { className: t.selects }),
-            // }}
-            {...(t.isSpk && { 'data-isSpk': '' })}
-            {...(t.selects && { className: t.selects })}
-          >
-            {t.word}
-          </span>
-        ) : (
-          t.word
-        )
-      )}
+    <div id="reader" onClick={selectionHandle}>
+      {txtRes.map(({ isSpk, selects, word, key }) => (
+        <span
+          key={key}
+          {...(isSpk && { 'data-spking': '' })}
+          {...(selects && { className: selects })}
+        >
+          {word}
+        </span>
+      ))}
     </div>
   )
 }
+// window.addEventListener('scroll', function (e) {
+//   debugger
+// })
