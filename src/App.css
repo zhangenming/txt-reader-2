@@ -1,0 +1,46 @@
+#reader {
+  /* word-break: normal; */
+  /* word-spacing: initial; */
+  white-space: break-spaces;
+  font-family: fangsong;
+  text-indent: 2em;
+  line-height: 1.5em;
+  font-size: 27px;
+  color: khaki;
+  /* height: 100vh;
+    overflow-y: scroll; */
+  /* scroll-behavior: smooth; */
+}
+
+body {
+  margin: 0;
+  background: cornflowerblue;
+}
+block {
+  display: block;
+  padding: 10px 0px;
+}
+[data-type*='words'] {
+  color: black;
+}
+[data-type*='spks'] {
+  background: #3da3eb;
+  /* border: 1px solid #3da3eb;
+    border-width: 0.3em 0 ; */
+}
+part {
+  /* display: inline-block;
+    text-indent: 0; */
+}
+::selection {
+  color: red;
+  background: deepskyblue;
+}
+
+span[class] {
+  color: red;
+}
+
+span[data-isSpk] {
+  background: #3da3eb;
+}

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <input
+      type="button"
+      title="HTML5摄像头"
+      value="开启摄像头"
+      onclick="getMedia()"
+    />
+    <video id="video" width="500px" height="500px" autoplay="autoplay"></video>
+    <canvas id="canvas" width="500px" height="500px"></canvas>
+    <button id="snap" onclick="takePhoto()">拍照</button>
+    <script>
+      function getMedia() {
+        alert(navigator.mediaDevices)
+        let constraints = {
+          //参数
+          video: { width: 500, height: 500 },
+          audio: true,
+        }
+        //获得video摄像头区域
+        let video = document.getElementById('video')
+        //返回的Promise对象
+        let promise = navigator.mediaDevices.getUserMedia(constraints)
+        //then()异步，调用MediaStream对象作为参数
+        promise.then(function (MediaStream) {
+          video.srcObject = MediaStream
+          video.play()
+        })
+      }
+
+      function takePhoto() {
+        //获得Canvas对象
+        let video = document.getElementById('video')
+        let canvas = document.getElementById('canvas')
+        let ctx = canvas.getContext('2d')
+        //绘图
+        ctx.drawImage(video, 0, 0, 300, 300)
+      }
+    </script>
+  </body>
+</html>
