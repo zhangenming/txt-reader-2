@@ -1,5 +1,5 @@
 import txt from '../txt/欧维'
-import { getWordPositionAll } from './utils'
+import { getDom, getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
 
@@ -19,14 +19,14 @@ function gene(selects: string[]) {
     if (word === '“') isSpk = _spk = true
     if (word === '”') _spk = false
 
-    return { word, isSpk, selects: '' }
+    return { word, isSpk, selects: '-' }
   })
 
   // select
   selects.forEach(select => {
     const idxs = getWordPositionAll(txt, select)
     idxs?.forEach(idx => {
-      txtObj[idx].selects += select + ' ' //Modify
+      txtObj[idx].selects += select + '-' //Modify
     })
   })
 
@@ -96,13 +96,23 @@ export default function App() {
     }
   }
 
+  function jumpHandle({ target }) {
+    if (String(selection)) return
+
+    const { innerHTML, offsetTop } = target
+
+    document.documentElement.scrollTop +=
+      getDoms(`[class*='${innerHTML}']`).find(e => e.offsetTop > offsetTop)!
+        .offsetTop - offsetTop
+  }
+
   return (
     <div id="reader" onClick={selectionHandle}>
       {txtRes.map(({ isSpk, selects, word, key }) => (
         <span
           key={key}
           {...(isSpk && { 'data-spking': '' })}
-          {...(selects && { className: selects })}
+          {...(selects != '-' && { className: selects, onClick: jumpHandle })}
         >
           {word}
         </span>
@@ -110,6 +120,3 @@ export default function App() {
     </div>
   )
 }
-// window.addEventListener('scroll', function (e) {
-//   debugger
-// })

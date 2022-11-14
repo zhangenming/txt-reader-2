@@ -9,9 +9,11 @@
   color: khaki;
   /* height: 100vh;
     overflow-y: scroll; */
-  /* scroll-behavior: smooth; */
 }
 
+html {
+  scroll-behavior: smooth;
+}
 body {
   margin: 0;
   background: cornflowerblue;
