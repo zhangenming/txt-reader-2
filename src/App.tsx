@@ -107,16 +107,26 @@ export default function App() {
   }
 
   return (
-    <div id="reader" onClick={selectionHandle}>
-      {txtRes.map(({ isSpk, selects, word, key }) => (
-        <span
-          key={key}
-          {...(isSpk && { 'data-spking': '' })}
-          {...(selects != '-' && { className: selects, onClick: jumpHandle })}
-        >
-          {word}
-        </span>
-      ))}
-    </div>
+    <>
+      <div id="reader" onClick={selectionHandle}>
+        {txtRes.map(({ isSpk, selects, word, key }) => (
+          <span
+            key={key}
+            {...(isSpk && { 'data-spking': '' })}
+            {...(selects != '-' && { className: selects, onClick: jumpHandle })}
+          >
+            {word}
+          </span>
+        ))}
+      </div>
+      <style>
+        {selects
+          .map(
+            word =>
+              `#reader:has([class*="-${word}-"]:hover) [class*="-${word}-"]`
+          )
+          .join(',\n') + '{ background: #516041 }'}
+      </style>
+    </>
   )
 }
