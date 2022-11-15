@@ -1,5 +1,4 @@
-import _txt from '../txt/欧维'
-const txt = _txt.replaceAll('\n', '\n\n')
+import txt from '../txt/欧维'
 import { getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
@@ -25,7 +24,7 @@ function gene(selects: string[]) {
     return { content, isSpk, points: '-' }
   })
 
-  // select
+  // select 分割独立标记
   selects.forEach(select => {
     getWordPositionAll(txt, select)?.forEach((idx, i, arr) => {
       const word = txtObj[idx]
@@ -44,11 +43,16 @@ function gene(selects: string[]) {
     })
   })
 
-  // reduce合并
+  // reduce 依据标记合并
   let key = 0
   const txtRender = txtObj.reduce(
-    (all: T, { content, isSpk, points, pointType }) => {
-      const pre = all.at(-1)
+    (all: T[], { content, isSpk, points, pointType }) => {
+      if (content === '\n') {
+        all.push([]) // new block
+        return all
+      }
+
+      const pre = all.at(-1)!.at(-1)
       if (
         pre &&
         pre.isSpk === isSpk &&
@@ -56,14 +60,14 @@ function gene(selects: string[]) {
       ) {
         pre.content += content
       } else {
-        all.push({ content, isSpk, points, pointType, key })
+        all.at(-1)!.push({ content, isSpk, points, pointType, key })
       }
 
       key += content.length
 
       return all
     },
-    []
+    [[]]
   )
 
   // txtRender.ll
@@ -151,18 +155,22 @@ export default function App() {
   return (
     <>
       <div id="reader" onClick={selectionHandle}>
-        {txtRender.map(({ isSpk, points, content, key, pointType }) => (
-          <span
-            key={key}
-            {...(isSpk && { 'data-spking': '' })}
-            {...(points != '-' && {
-              'point-type': pointType,
-              className: points,
-              onClick: jumpHandle,
-            })}
-          >
-            {content}
-          </span>
+        {txtRender.map(block => (
+          <div>
+            {block.map(({ key, isSpk, points, pointType, content }) => (
+              <span
+                key={key}
+                {...(isSpk && { 'data-spking': '' })}
+                {...(points != '-' && {
+                  className: points,
+                  onClick: jumpHandle,
+                  'point-type': pointType,
+                })}
+              >
+                {content}
+              </span>
+            ))}
+          </div>
         ))}
       </div>
 
