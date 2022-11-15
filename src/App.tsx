@@ -1,4 +1,5 @@
-import txt from '../txt/欧维'
+import _txt from '../txt/欧维'
+const txt = _txt.replaceAll('\n', '\n\n')
 import { getDom, getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
@@ -7,52 +8,74 @@ const selection = getSelection()!
 
 function gene(selects: string[]) {
   type T = {
-    word: string
+    content: string
     isSpk: boolean
     selects: string
+    type?: 'first' | 'last' | 'justOne'
+    key?: number
   }[]
 
   let _spk = false
-  const txtObj: T = [...txt].map(word => {
+  const txtObj: T = [...txt].map(content => {
     // 能不能通过css搞定？
     let isSpk = _spk
-    if (word === '“') isSpk = _spk = true
-    if (word === '”') _spk = false
+    if (content === '“') isSpk = _spk = true
+    if (content === '”') _spk = false
 
-    return { word, isSpk, selects: '-' }
+    return { content, isSpk, selects: '-' }
   })
 
   // select
   selects.forEach(select => {
     const idxs = getWordPositionAll(txt, select)
-    idxs?.forEach(idx => {
-      txtObj[idx].selects += select + '-' //Modify
+    idxs?.forEach((idx, i, arr) => {
+      const word = txtObj[idx]
+
+      if (i === 0) {
+        word.type = 'first'
+      }
+      if (i === arr.length - select.length) {
+        word.type = 'last'
+      }
+      if (i === 0 && i === arr.length - select.length) {
+        word.type = 'justOne'
+      }
+
+      word.selects += select + '-'
     })
   })
 
   // reduce合并
   let key = 0
-  const txtRes = txtObj.reduce(
-    (all, { word, isSpk, selects }) => {
-      key += word.length
+  const txtRender = txtObj.reduce(
+    (all, { content, isSpk, selects, type }) => {
+      key += content.length
+
       const pre = all.at(-1)!
       if (
-        // 需不需要sort一下?
-        String(pre.selects) === String(selects) &&
+        String(pre.selects) === String(selects) && // 需不需要sort一下?
         pre.isSpk === isSpk
       ) {
-        pre.word += word
+        pre.content += content
       } else {
-        all.push({ word, isSpk, selects, key })
+        all.push({ content, isSpk, selects, type, key })
       }
 
       return all
     },
-    [{ word: '', isSpk: false, selects: '', key }]
+    [{ content: '', isSpk: false, selects: '', key }] as T
   )
 
-  return txtRes
+  return txtRender
 }
+
+const keysHold: { [key: string]: boolean } = {}
+document.addEventListener('keydown', ({ key }) => {
+  keysHold[key] = true
+})
+document.addEventListener('keyup', e => {
+  keysHold[e.key] = false
+})
 
 export default function App() {
   window.onbeforeunload = () => {
@@ -68,13 +91,13 @@ export default function App() {
     JSON.parse(String(localStorage.getItem('selects'))) || []
   )
 
-  const txtRes = gene(selects)
+  const txtRender = gene(selects)
 
   // add/remove select
   function selectionHandle() {
     const select = String(selection)
-    if (!select) return
     selection.removeAllRanges()
+    if (!select || select.includes('\n')) return
 
     if (selects.includes(select)) {
       SETselects(selects.filter(e => e !== select))
@@ -84,46 +107,62 @@ export default function App() {
       const count = getWordPositionAll(txt, select)!.length / select.length
       console.log(count)
 
-      // // justOne
-      // if (count === 1) {
-      //   setTimeout(() => {
-      //     selects.splice(selects.indexOf(select), 1)
-      //   }, 1000)
-      // }
+      // justOne
+      if (count === 1) {
+        setTimeout(() => {
+          SETselects(selects.filter(e => e !== select))
+        }, 1000)
+      }
 
       // justOneScreen
       // 判断所有元素是否在屏幕内
     }
   }
 
-  function jumpHandle({ target }) {
+  function jumpHandle({
+    currentTarget,
+  }: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
     if (String(selection)) return
 
-    const { innerHTML, offsetTop } = target
+    const { innerText, offsetTop } = currentTarget
+    const { Control /* 反向 */, Shift, Alt /* 到底 */ } = keysHold
 
-    document.documentElement.scrollTop +=
-      getDoms(`[class*='${innerHTML}']`).find(e => e.offsetTop > offsetTop)!
-        .offsetTop - offsetTop
+    const doms = getDoms(`[class*='${innerText}']`)
+    const targetDom = (() => {
+      if (Control && (Shift || Alt)) return doms[0]
+      if (Shift || Alt) return doms.at(-1)
+      if (Control)
+        return doms.findLast(e => e.offsetTop < offsetTop) || doms.at(-1) // pre
+      return doms.find(e => e.offsetTop > offsetTop) || doms[0] // next
+    })()
+
+    document.documentElement.scrollTop += targetDom!.offsetTop - offsetTop
   }
 
   return (
     <>
       <div id="reader" onClick={selectionHandle}>
-        {txtRes.map(({ isSpk, selects, word, key }) => (
+        {txtRender.map(({ isSpk, selects, content, key, type }) => (
           <span
             key={key}
             {...(isSpk && { 'data-spking': '' })}
-            {...(selects != '-' && { className: selects, onClick: jumpHandle })}
+            {...(type && { type })}
+            {...(selects != '-' && {
+              className: selects,
+              onClick: jumpHandle,
+            })}
           >
-            {word}
+            {content}
           </span>
         ))}
       </div>
+
+      {/* 延迟? 优先render reader */}
       <style>
         {selects
           .map(
-            word =>
-              `#reader:has([class*="-${word}-"]:hover) [class*="-${word}-"]`
+            select =>
+              `#reader:has([class*="-${select}-"]:hover) [class*="-${select}-"]`
           )
           .join(',\n') + '{ background: #516041 }'}
       </style>
