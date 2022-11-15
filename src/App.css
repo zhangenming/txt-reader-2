@@ -1,10 +1,11 @@
 #reader {
-  /* word-break: normal; */
+  word-break: break-word;
   /* word-spacing: initial; */
   white-space: break-spaces;
-  text-align: justify;
   letter-spacing: -2px;
+  text-align: justify;
   line-height: 1.3em;
+
   font-family: fangsong;
   font-size: 27px;
   color: khaki;
@@ -12,9 +13,6 @@
 
 html {
   scroll-behavior: smooth;
-}
-body {
-  margin: 0;
   background: cornflowerblue;
 }
 ::selection {
@@ -29,14 +27,14 @@ span[data-spking] {
 span[class] {
   color: black;
 }
-span[type='first'] {
+span[point-type='first'] {
   border-left: solid;
   border-radius: 7px;
 }
-span[type='last'] {
+span[point-type='last'] {
   border-right: solid;
   border-radius: 7px;
 }
-span[type='justOne'] {
+span[point-type='justOne'] {
   text-decoration: line-through dashed from-font;
 }

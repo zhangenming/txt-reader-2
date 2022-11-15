@@ -1,6 +1,6 @@
 import _txt from '../txt/欧维'
 const txt = _txt.replaceAll('\n', '\n\n')
-import { getDom, getDoms, getWordPositionAll } from './utils'
+import { getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
 
@@ -10,8 +10,8 @@ function gene(selects: string[]) {
   type T = {
     content: string
     isSpk: boolean
-    selects: string
-    type?: 'first' | 'last' | 'justOne'
+    points: string
+    pointType?: 'first' | 'last' | 'justOne'
     key?: number
   }[]
 
@@ -22,49 +22,51 @@ function gene(selects: string[]) {
     if (content === '“') isSpk = _spk = true
     if (content === '”') _spk = false
 
-    return { content, isSpk, selects: '-' }
+    return { content, isSpk, points: '-' }
   })
 
   // select
   selects.forEach(select => {
-    const idxs = getWordPositionAll(txt, select)
-    idxs?.forEach((idx, i, arr) => {
+    getWordPositionAll(txt, select)?.forEach((idx, i, arr) => {
       const word = txtObj[idx]
 
       if (i === 0) {
-        word.type = 'first'
+        word.pointType = 'first'
       }
       if (i === arr.length - select.length) {
-        word.type = 'last'
+        word.pointType = 'last'
       }
-      if (i === 0 && i === arr.length - select.length) {
-        word.type = 'justOne'
+      if (0 === arr.length - select.length) {
+        word.pointType = 'justOne'
       }
 
-      word.selects += select + '-'
+      word.points += select + '-'
     })
   })
 
   // reduce合并
   let key = 0
   const txtRender = txtObj.reduce(
-    (all, { content, isSpk, selects, type }) => {
-      key += content.length
-
-      const pre = all.at(-1)!
+    (all: T, { content, isSpk, points, pointType }) => {
+      const pre = all.at(-1)
       if (
-        String(pre.selects) === String(selects) && // 需不需要sort一下?
-        pre.isSpk === isSpk
+        pre &&
+        pre.isSpk === isSpk &&
+        String(pre.points) === String(points) // 需不需要sort一下?
       ) {
         pre.content += content
       } else {
-        all.push({ content, isSpk, selects, type, key })
+        all.push({ content, isSpk, points, pointType, key })
       }
+
+      key += content.length
 
       return all
     },
-    [{ content: '', isSpk: false, selects: '', key }] as T
+    []
   )
+
+  // txtRender.ll
 
   return txtRender
 }
@@ -79,12 +81,17 @@ document.addEventListener('keyup', e => {
 
 export default function App() {
   window.onbeforeunload = () => {
-    localStorage.setItem('scroll', String(document.documentElement.scrollTop))
+    localStorage.setItem(
+      'scrollTop',
+      String(document.documentElement.scrollTop)
+    )
     localStorage.setItem('selects', JSON.stringify(selects))
   }
 
   useEffect(() => {
-    document.documentElement.scrollTop = Number(localStorage.getItem('scroll'))
+    document.documentElement.scrollTop = Number(
+      localStorage.getItem('scrollTop')
+    )
   }, [])
 
   const [selects, SETselects] = useState<string[]>(
@@ -120,35 +127,37 @@ export default function App() {
   }
 
   function jumpHandle({
-    currentTarget,
+    currentTarget: { innerText, offsetTop },
   }: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
     if (String(selection)) return
 
-    const { innerText, offsetTop } = currentTarget
-    const { Control /* 反向 */, Shift, Alt /* 到底 */ } = keysHold
-
-    const doms = getDoms(`[class*='${innerText}']`)
     const targetDom = (() => {
+      const { Control /* 反向 */, Shift, Alt /* 到底 */ } = keysHold
+      const doms = getDoms(`[class*='${innerText}']`)
+
       if (Control && (Shift || Alt)) return doms[0]
       if (Shift || Alt) return doms.at(-1)
       if (Control)
-        return doms.findLast(e => e.offsetTop < offsetTop) || doms.at(-1) // pre
+        return (
+          (doms as any).findLast((e: any) => e.offsetTop < offsetTop) ||
+          doms.at(-1)
+        ) // pre
       return doms.find(e => e.offsetTop > offsetTop) || doms[0] // next
     })()
 
-    document.documentElement.scrollTop += targetDom!.offsetTop - offsetTop
+    document.documentElement.scrollTop += targetDom.offsetTop - offsetTop
   }
 
   return (
     <>
       <div id="reader" onClick={selectionHandle}>
-        {txtRender.map(({ isSpk, selects, content, key, type }) => (
+        {txtRender.map(({ isSpk, points, content, key, pointType }) => (
           <span
             key={key}
             {...(isSpk && { 'data-spking': '' })}
-            {...(type && { type })}
-            {...(selects != '-' && {
-              className: selects,
+            {...(points != '-' && {
+              'point-type': pointType,
+              className: points,
               onClick: jumpHandle,
             })}
           >
