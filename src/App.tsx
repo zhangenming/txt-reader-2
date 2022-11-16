@@ -89,7 +89,10 @@ export default function App() {
   const [selects, SETselects] = useState<string[]>(
     JSON.parse(String(localStorage.getItem('selects'))) || []
   )
+  console.time()
   const txtRender = gene(selects)
+  console.timeEnd()
+  console.time()
   const render = (
     <>
       <div id="reader" onClick={selectionHandle}>
@@ -117,6 +120,7 @@ export default function App() {
       </div>
 
       {/* 延迟? 优先render reader */}
+      {/* 集合/独立 是否有区别 */}
       <style>
         {selects
           .map(
@@ -127,6 +131,7 @@ export default function App() {
       </style>
     </>
   )
+  console.timeEnd()
 
   window.onbeforeunload = () => {
     localStorage.setItem(
