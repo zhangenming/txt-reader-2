@@ -1,14 +1,17 @@
-import txt from '../txt/欧维'
+import _txt from '../txt/欧维'
+const txt = _txt
+  .replaceAll('　　', '')
+  .replaceAll('。', '。   ')
+  .replaceAll('。   ”', '。”')
+// .replaceAll('。', '。\n')
 import { getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
 
-const selection = getSelection()!
-
 function gene(selects: string[]) {
   type T = {
     content: string
-    isSpk: boolean
+    spking: boolean
     points: string
     pointType?: 'first' | 'last' | 'justOne'
     key?: number
@@ -17,11 +20,11 @@ function gene(selects: string[]) {
   let _spk = false
   const txtObj: T = [...txt].map(content => {
     // 能不能通过css搞定？
-    let isSpk = _spk
-    if (content === '“') isSpk = _spk = true
+    let spking = _spk
+    if (content === '“') spking = _spk = true
     if (content === '”') _spk = false
 
-    return { content, isSpk, points: '-' }
+    return { content, spking, points: '-' }
   })
 
   // select 分割独立标记
@@ -46,21 +49,28 @@ function gene(selects: string[]) {
   // reduce 依据标记合并
   let key = 0
   const txtRender = txtObj.reduce(
-    (all: T[], { content, isSpk, points, pointType }) => {
+    (all: T[], { content, spking, points, pointType }) => {
       if (content === '\n') {
         all.push([]) // new block
         return all
       }
 
-      const pre = all.at(-1)!.at(-1)
+      const preT = all.at(-1)!
+      const pre = preT.at(-1)!
       if (
-        pre &&
-        pre.isSpk === isSpk &&
+        pre && // ?
+        pre.spking === spking &&
         String(pre.points) === String(points) // 需不需要sort一下?
       ) {
         pre.content += content
       } else {
-        all.at(-1)!.push({ content, isSpk, points, pointType, key })
+        preT.push({
+          content,
+          spking,
+          points,
+          pointType,
+          key,
+        })
       }
 
       key += content.length
@@ -70,20 +80,54 @@ function gene(selects: string[]) {
     [[]]
   )
 
-  // txtRender.ll
+  txtRender.ll
 
   return txtRender
 }
 
-const keysHold: { [key: string]: boolean } = {}
-document.addEventListener('keydown', ({ key }) => {
-  keysHold[key] = true
-})
-document.addEventListener('keyup', e => {
-  keysHold[e.key] = false
-})
-
 export default function App() {
+  const [selects, SETselects] = useState<string[]>(
+    JSON.parse(String(localStorage.getItem('selects'))) || []
+  )
+  const txtRender = gene(selects)
+  const render = (
+    <>
+      <div id="reader" onClick={selectionHandle}>
+        {txtRender.map(block => (
+          <div>
+            {block.map(({ key, spking, points, pointType, content }) =>
+              spking || points != '-' ? (
+                <span
+                  key={key}
+                  {...(spking && { 'data-spking': '' })}
+                  {...(points != '-' && {
+                    className: points,
+                    onClick: jumpHandle,
+                    'point-type': pointType,
+                  })}
+                >
+                  {content}
+                </span>
+              ) : (
+                content
+              )
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* 延迟? 优先render reader */}
+      <style>
+        {selects
+          .map(
+            select =>
+              `#reader:has([class*="-${select}-"]:hover) [class*="-${select}-"]`
+          )
+          .join(',\n') + '{ background: #516041 }'}
+      </style>
+    </>
+  )
+
   window.onbeforeunload = () => {
     localStorage.setItem(
       'scrollTop',
@@ -97,12 +141,6 @@ export default function App() {
       localStorage.getItem('scrollTop')
     )
   }, [])
-
-  const [selects, SETselects] = useState<string[]>(
-    JSON.parse(String(localStorage.getItem('selects'))) || []
-  )
-
-  const txtRender = gene(selects)
 
   // add/remove select
   function selectionHandle() {
@@ -130,59 +168,37 @@ export default function App() {
     }
   }
 
-  function jumpHandle({
-    currentTarget: { innerText, offsetTop },
-  }: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
-    if (String(selection)) return
+  return render
+}
 
-    const targetDom = (() => {
-      const { Control /* 反向 */, Shift, Alt /* 到底 */ } = keysHold
-      const doms = getDoms(`[class*='${innerText}']`)
+const selection = getSelection()!
 
-      if (Control && (Shift || Alt)) return doms[0]
-      if (Shift || Alt) return doms.at(-1)
-      if (Control)
-        return (
-          (doms as any).findLast((e: any) => e.offsetTop < offsetTop) ||
-          doms.at(-1)
-        ) // pre
-      return doms.find(e => e.offsetTop > offsetTop) || doms[0] // next
-    })()
+const keysHold: { [key: string]: boolean } = {}
+document.addEventListener('keydown', ({ key }) => {
+  keysHold[key] = true
+})
+document.addEventListener('keyup', e => {
+  keysHold[e.key] = false
+})
 
-    document.documentElement.scrollTop += targetDom.offsetTop - offsetTop
-  }
+function jumpHandle({
+  currentTarget: { innerText, offsetTop },
+}: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
+  if (String(selection)) return
 
-  return (
-    <>
-      <div id="reader" onClick={selectionHandle}>
-        {txtRender.map(block => (
-          <div>
-            {block.map(({ key, isSpk, points, pointType, content }) => (
-              <span
-                key={key}
-                {...(isSpk && { 'data-spking': '' })}
-                {...(points != '-' && {
-                  className: points,
-                  onClick: jumpHandle,
-                  'point-type': pointType,
-                })}
-              >
-                {content}
-              </span>
-            ))}
-          </div>
-        ))}
-      </div>
+  const targetDom = (() => {
+    const { Control /* 反向 */, Shift, Alt /* 到底 */ } = keysHold
+    const doms = getDoms(`[class*='${innerText}']`)
 
-      {/* 延迟? 优先render reader */}
-      <style>
-        {selects
-          .map(
-            select =>
-              `#reader:has([class*="-${select}-"]:hover) [class*="-${select}-"]`
-          )
-          .join(',\n') + '{ background: #516041 }'}
-      </style>
-    </>
-  )
+    if (Control && (Shift || Alt)) return doms[0]
+    if (Shift || Alt) return doms.at(-1)
+    if (Control)
+      return (
+        (doms as any).findLast((e: any) => e.offsetTop < offsetTop) ||
+        doms.at(-1)
+      ) // pre
+    return doms.find(e => e.offsetTop > offsetTop) || doms[0] // next
+  })()
+
+  document.documentElement.scrollTop += targetDom.offsetTop - offsetTop
 }

@@ -4,11 +4,11 @@
   white-space: break-spaces;
   letter-spacing: -2px;
   text-align: justify;
-  line-height: 1.3em;
+  line-height: 1em;
 
   font-family: fangsong;
   font-size: 27px;
-  color: khaki;
+  color: #faffef;
 }
 
 html {
@@ -20,11 +20,24 @@ html {
   background: deepskyblue;
 }
 
-span[data-spking] {
-  background: #3da3eb;
+/* block */
+div {
+  margin: 1em 0;
+  text-indent: 2em;
+}
+/* block段落 */
+div:empty {
+  height: 5em;
 }
 
-span[class] {
+/* spking */
+span[data-spking] {
+  background: #3da3eb;
+  /* padding: 0.2em; */
+}
+
+/* select */
+span[class][class] {
   color: black;
 }
 span[point-type='first'] {
