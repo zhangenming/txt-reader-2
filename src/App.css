@@ -51,3 +51,7 @@ span[point-type='last'] {
 span[point-type='justOne'] {
   text-decoration: line-through dashed from-font;
 }
+
+span.activeSelect {
+  background: #ffb9ff;
+}

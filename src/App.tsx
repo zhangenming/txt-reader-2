@@ -18,6 +18,7 @@ function gene(selects: string[]) {
   }[]
 
   let _spk = false
+  // init with spk
   const txtObj: T = [...txt].map(content => {
     // 能不能通过css搞定？
     let spking = _spk
@@ -27,22 +28,20 @@ function gene(selects: string[]) {
     return { content, spking, points: '-' }
   })
 
-  // select 分割独立标记
+  // 应用 select 分割独立标记
   selects.forEach(select => {
     getWordPositionAll(txt, select)?.forEach((idx, i, arr) => {
-      const word = txtObj[idx]
-
       if (i === 0) {
-        word.pointType = 'first'
+        txtObj[idx].pointType = 'first'
       }
       if (i === arr.length - select.length) {
-        word.pointType = 'last'
+        txtObj[idx].pointType = 'last'
       }
       if (0 === arr.length - select.length) {
-        word.pointType = 'justOne'
+        txtObj[idx].pointType = 'justOne'
       }
 
-      word.points += select + '-'
+      txtObj[idx].points += select + '-'
     })
   })
 
@@ -56,7 +55,7 @@ function gene(selects: string[]) {
       }
 
       const preT = all.at(-1)!
-      const pre = preT.at(-1)!
+      const pre = preT.at(-1)
       if (
         pre && // ?
         pre.spking === spking &&
@@ -80,11 +79,12 @@ function gene(selects: string[]) {
     [[]]
   )
 
-  txtRender.ll
+  // txtRender.ll
 
   return txtRender
 }
 
+// 部分渲染
 export default function App() {
   const [selects, SETselects] = useState<string[]>(
     JSON.parse(String(localStorage.getItem('selects'))) || []
@@ -92,6 +92,7 @@ export default function App() {
   console.time()
   const txtRender = gene(selects)
   console.timeEnd()
+
   console.time()
   const render = (
     <>
@@ -105,7 +106,7 @@ export default function App() {
                   {...(spking && { 'data-spking': '' })}
                   {...(points != '-' && {
                     className: points,
-                    onClick: jumpHandle,
+                    onClick: e => jumpHandle(e.currentTarget),
                     'point-type': pointType,
                   })}
                 >
@@ -127,24 +128,19 @@ export default function App() {
             select =>
               `#reader:has([class*="-${select}-"]:hover) [class*="-${select}-"]`
           )
-          .join(',\n') + '{ background: #516041 }'}
+          .join(',\n') + '{ outline:solid }'}
       </style>
     </>
   )
   console.timeEnd()
 
   window.onbeforeunload = () => {
-    localStorage.setItem(
-      'scrollTop',
-      String(document.documentElement.scrollTop)
-    )
+    localStorage.setItem('scrollTop', String(html.scrollTop))
     localStorage.setItem('selects', JSON.stringify(selects))
   }
 
   useEffect(() => {
-    document.documentElement.scrollTop = Number(
-      localStorage.getItem('scrollTop')
-    )
+    html.scrollTop = Number(localStorage.getItem('scrollTop'))
   }, [])
 
   // add/remove select
@@ -177,33 +173,56 @@ export default function App() {
 }
 
 const selection = getSelection()!
+const html = document.documentElement
 
 const keysHold: { [key: string]: boolean } = {}
-document.addEventListener('keydown', ({ key }) => {
-  keysHold[key] = true
+document.addEventListener('keyup', ({ key }) => {
+  keysHold[key] = false
 })
-document.addEventListener('keyup', e => {
-  keysHold[e.key] = false
+document.addEventListener('keydown', e => {
+  keysHold[e.key] = true
+
+  if (e.key === 'Alt') {
+    e.preventDefault()
+    jumpHandle()
+  }
 })
 
-function jumpHandle({
-  currentTarget: { innerText, offsetTop },
-}: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
+let autoSelect: any = { style: {} }
+function jumpHandle({ innerText: select, offsetTop } = autoSelect) {
   if (String(selection)) return
 
-  const targetDom = (() => {
-    const { Control /* 反向 */, Shift, Alt /* 到底 */ } = keysHold
-    const doms = getDoms(`[class*='${innerText}']`)
+  // active select
+  const preSelect = autoSelect.innerText
+  if (preSelect != select) {
+    getDoms(`[class*='${select}'],[class*='${preSelect}']`).forEach(e =>
+      e.classList.toggle('activeSelect')
+    )
+  }
 
-    if (Control && (Shift || Alt)) return doms[0]
-    if (Shift || Alt) return doms.at(-1)
-    if (Control)
+  // active word
+  autoSelect.style.background = ''
+  autoSelect.style.outline = ''
+
+  autoSelect = (() => {
+    const { Control /* 到底 */, Shift /* 反向 */ } = keysHold
+    const doms = getDoms(`[class*='${select}']`)
+
+    if (Control && Shift) return doms[0]
+
+    if (Control) return doms.at(-1)
+
+    if (Shift)
       return (
         (doms as any).findLast((e: any) => e.offsetTop < offsetTop) ||
-        doms.at(-1)
-      ) // pre
+        doms.at(-1) // pre
+      )
+
     return doms.find(e => e.offsetTop > offsetTop) || doms[0] // next
   })()
 
-  document.documentElement.scrollTop += targetDom.offsetTop - offsetTop
+  autoSelect.style.outline = 'solid brown'
+  autoSelect.style.background = '#eae'
+
+  html.scrollTop += autoSelect.offsetTop - offsetTop
 }
