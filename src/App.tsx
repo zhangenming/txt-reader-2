@@ -28,7 +28,7 @@ function gene(selects: string[]) {
     return { content, spking, points: '-' }
   })
 
-  // 应用 select 分割独立标记
+  // 根据 select 标记分割
   selects.forEach(select => {
     getWordPositionAll(txt, select)?.forEach((idx, i, arr) => {
       if (i === 0) {
@@ -150,22 +150,26 @@ export default function App() {
     if (!select || select.includes('\n')) return
 
     if (selects.includes(select)) {
-      SETselects(selects.filter(e => e !== select))
+      del()
     } else {
-      SETselects([...selects, select])
+      add()
 
       const count = getWordPositionAll(txt, select)!.length / select.length
       console.log(count)
 
       // justOne
       if (count === 1) {
-        setTimeout(() => {
-          SETselects(selects.filter(e => e !== select))
-        }, 1000)
+        setTimeout(del, 1000)
       }
 
       // justOneScreen
       // 判断所有元素是否在屏幕内
+    }
+    function del() {
+      SETselects(selects.filter(e => e !== select))
+    }
+    function add() {
+      SETselects([...selects, select])
     }
   }
 
