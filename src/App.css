@@ -22,12 +22,13 @@ html {
 
 /* block */
 div {
-  margin: 1em 0;
-  text-indent: 2em;
+  margin-top: 4em;
+  /* text-indent: 2em; */
 }
 /* block段落 */
 div:empty {
   height: 5em;
+  background: red;
 }
 
 /* spking */

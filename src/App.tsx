@@ -1,34 +1,33 @@
 import _txt from '../txt/欧维'
-const txt = _txt
-  .replaceAll('　　', '')
-  .replaceAll('。', '。   ')
-  .replaceAll('。   ”', '。”')
-// .replaceAll('。', '。\n')
-import { getDoms, getWordPositionAll } from './utils'
+const txt = _txt.replaceAll(/ *\n+ */gi, '\n')
+
+import { getDom, getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
 
 function gene(selects: string[]) {
-  type T = {
+  type character = {
     content: string
     spking: boolean
     points: string
     pointType?: 'first' | 'last' | 'justOne'
     key?: number
-  }[]
+  }
+  type characterArr = character[] & { style?: {} }
 
   let _spk = false
-  // init with spk
-  const txtObj: T = [...txt].map(content => {
-    // 能不能通过css搞定？
+  // 字符对象
+  const txtObj: characterArr = [...txt].map(content => {
+    // 依据 spk 标记分割; 能不能通过css/reg搞定？
     let spking = _spk
     if (content === '“') spking = _spk = true
     if (content === '”') _spk = false
+    if (content === '\n') _spk = false // 容错
 
     return { content, spking, points: '-' }
   })
 
-  // 根据 select 标记分割
+  // 依据 select 标记分割
   selects.forEach(select => {
     getWordPositionAll(txt, select)?.forEach((idx, i, arr) => {
       if (i === 0) {
@@ -37,6 +36,7 @@ function gene(selects: string[]) {
       if (i === arr.length - select.length) {
         txtObj[idx].pointType = 'last'
       }
+      // first === last, hint justOne
       if (0 === arr.length - select.length) {
         txtObj[idx].pointType = 'justOne'
       }
@@ -48,14 +48,32 @@ function gene(selects: string[]) {
   // reduce 依据标记合并
   let key = 0
   const txtRender = txtObj.reduce(
-    (all: T[], { content, spking, points, pointType }) => {
+    (all: characterArr[], { content, spking, points, pointType }) => {
+      const preT = all.at(-1)!
+      const pre = preT.at(-1)
+
       if (content === '\n') {
         all.push([]) // new block
+
+        // 分割 尝试识别段落
+        const blockText = preT.map(e => e.content).join('')
+        preT.style = {
+          marginTop:
+            blockText.includes('第') && blockText.includes('章') ? '5em' : '',
+        }
+
+        // 分割 语句
+        preT[0].content = preT[0].content.replace(/^/, '    ')
+        preT.forEach(block => {
+          block.content = block.content.replaceAll(
+            /。(?!($| |）|”))/gi,
+            '。\n\n    '
+          )
+        })
+
         return all
       }
 
-      const preT = all.at(-1)!
-      const pre = preT.at(-1)
       if (
         pre && // ?
         pre.spking === spking &&
@@ -98,7 +116,7 @@ export default function App() {
     <>
       <div id="reader" onClick={selectionHandle}>
         {txtRender.map(block => (
-          <div>
+          <div style={block.style}>
             {block.map(({ key, spking, points, pointType, content }) =>
               spking || points != '-' ? (
                 <span
@@ -128,7 +146,7 @@ export default function App() {
             select =>
               `#reader:has([class*="-${select}-"]:hover) [class*="-${select}-"]`
           )
-          .join(',\n') + '{ outline:solid }'}
+          .join(',\n') + '{ outline:solid!important }'}
       </style>
     </>
   )
@@ -187,6 +205,10 @@ document.addEventListener('keydown', e => {
   keysHold[e.key] = true
 
   if (e.key === 'Alt') {
+    // if (!autoSelect) {
+    //   autoSelect = getDom('span[class]:hover')
+    // }
+
     e.preventDefault()
     jumpHandle()
   }
@@ -225,7 +247,7 @@ function jumpHandle({ innerText: select, offsetTop } = autoSelect) {
     return doms.find(e => e.offsetTop > offsetTop) || doms[0] // next
   })()
 
-  autoSelect.style.outline = 'solid brown'
+  autoSelect.style.outline = 'brown solid 5px'
   autoSelect.style.background = '#eae'
 
   html.scrollTop += autoSelect.offsetTop - offsetTop

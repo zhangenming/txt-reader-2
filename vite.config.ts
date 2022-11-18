@@ -5,6 +5,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
 
+  server: {
+    hmr: false,
+  },
+
   build: {
     sourcemap: true,
     target: 'chrome110',
