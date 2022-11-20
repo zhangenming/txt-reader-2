@@ -1,50 +1,60 @@
-import _txt from '../txt/欧维'
-const txt = _txt.replaceAll(/ *\n+ */gi, '\n')
+import _txt from '../txt/钱学森'
+const txt = _txt.replaceAll(/( *\n+ *)+/gi, '\n').slice(0, 1e4)
 
 import { getDom, getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
+type character = {
+  content: string
+  spking: boolean
+  points: string
+  pointType?: 'first' | 'last' | 'justOne'
+  key?: number
+}
+type characterArr = character[] & { style?: {} }
 
-function gene(selects: string[]) {
-  type character = {
-    content: string
-    spking: boolean
-    points: string
-    pointType?: 'first' | 'last' | 'justOne'
-    key?: number
-  }
-  type characterArr = character[] & { style?: {} }
+const _selects: string[] =
+  JSON.parse(String(localStorage.getItem('selects'))) || []
 
-  let _spk = false
-  // 字符对象
-  const txtObj: characterArr = [...txt].map(content => {
-    // 依据 spk 标记分割; 能不能通过css/reg搞定？
-    let spking = _spk
-    if (content === '“') spking = _spk = true
-    if (content === '”') _spk = false
-    if (content === '\n') _spk = false // 容错
+let _spk = false
+// 字符对象
+const txtObj: characterArr = [...txt].map(content => {
+  // 依据 spk 标记分割; 能不能通过css/reg搞定？
+  let spking = _spk
+  if (content === '“') spking = _spk = true
+  if (content === '”') _spk = false
+  if (content === '\n') _spk = false // 容错
 
-    return { content, spking, points: '-' }
-  })
+  return { content, spking, points: '-' }
+})
 
-  // 依据 select 标记分割
-  selects.forEach(select => {
-    getWordPositionAll(txt, select)?.forEach((idx, i, arr) => {
-      if (i === 0) {
-        txtObj[idx].pointType = 'first'
-      }
-      if (i === arr.length - select.length) {
-        txtObj[idx].pointType = 'last'
-      }
-      // first === last, hint justOne
-      if (0 === arr.length - select.length) {
-        txtObj[idx].pointType = 'justOne'
-      }
+// 依据 select 标记分割
+_selects.forEach(select => changeData(select, 'add'))
 
+function changeData(select: string, type: 'add' | 'del') {
+  const isAdd = type === 'add'
+
+  getWordPositionAll(txt, select)?.forEach((idx, i, arr) => {
+    if (i === 0) {
+      txtObj[idx].pointType = isAdd ? 'first' : undefined
+    }
+    if (i === arr.length - select.length) {
+      txtObj[idx].pointType = isAdd ? 'last' : undefined
+    }
+    // first === last, hint justOne
+    if (0 === arr.length - select.length) {
+      txtObj[idx].pointType = isAdd ? 'justOne' : undefined
+    }
+
+    if (isAdd) {
       txtObj[idx].points += select + '-'
-    })
+    } else {
+      txtObj[idx].points = txtObj[idx].points.replace(`-${select}-`, '-')
+    }
   })
+}
 
+function gene() {
   // reduce 依据标记合并
   let key = 0
   const txtRender = txtObj.reduce(
@@ -59,7 +69,11 @@ function gene(selects: string[]) {
         const blockText = preT.map(e => e.content).join('')
         preT.style = {
           marginTop:
-            blockText.includes('第') && blockText.includes('章') ? '5em' : '',
+            blockText.includes('第') &&
+            blockText.includes('章') &&
+            blockText.length < 30
+              ? '10em'
+              : '',
         }
 
         // 分割 语句
@@ -67,7 +81,7 @@ function gene(selects: string[]) {
         preT.forEach(block => {
           block.content = block.content.replaceAll(
             /。(?!($| |）|”))/gi,
-            '。\n\n    '
+            '。\n    '
           )
         })
 
@@ -104,11 +118,10 @@ function gene(selects: string[]) {
 
 // 部分渲染
 export default function App() {
-  const [selects, SETselects] = useState<string[]>(
-    JSON.parse(String(localStorage.getItem('selects'))) || []
-  )
+  const [selects, SETselects] = useState(_selects)
+
   console.time()
-  const txtRender = gene(selects)
+  const txtRender = gene()
   console.timeEnd()
 
   console.time()
@@ -184,9 +197,11 @@ export default function App() {
       // 判断所有元素是否在屏幕内
     }
     function del() {
+      changeData(select, 'del')
       SETselects(selects.filter(e => e !== select))
     }
     function add() {
+      changeData(select, 'add')
       SETselects([...selects, select])
     }
   }
