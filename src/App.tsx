@@ -1,11 +1,11 @@
 import _txt from '../txt/钱学森'
-const txt = _txt.replaceAll(/( *\n+ *)+/gi, '\n').slice(0, 1e4)
+const txt = _txt.replaceAll(/( *\n+ *)+/gi, '\n') //.slice(0, 11)
 
 import { getDom, getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
 type character = {
-  content: string
+  char: string
   spking: boolean
   points: string
   pointType?: 'first' | 'last' | 'justOne'
@@ -16,139 +16,118 @@ type characterArr = character[] & { style?: {} }
 const _selects: string[] =
   JSON.parse(String(localStorage.getItem('selects'))) || []
 
-let _spk = false
-// 字符对象
-const txtObj: characterArr = [...txt].map(content => {
-  // 依据 spk 标记分割; 能不能通过css/reg搞定？
-  let spking = _spk
-  if (content === '“') spking = _spk = true
-  if (content === '”') _spk = false
-  if (content === '\n') _spk = false // 容错
+const arr_block_txt = txt.split('\n')
 
-  return { content, spking, points: '-' }
-})
+console.time()
+const arr_block_obj = arr_block_txt.map(txt2obj)
+console.timeEnd()
 
-// 依据 select 标记分割
-_selects.forEach(select => changeData(select, 'add'))
+console.time()
+const arr_block_render = arr_block_obj.map(obj2render)
+console.timeEnd()
 
-function changeData(select: string, type: 'add' | 'del') {
-  const isAdd = type === 'add'
+console.time()
+const arr_block_jsx = arr_block_render.map(render2jsx)
+console.timeEnd()
 
-  getWordPositionAll(txt, select)?.forEach((idx, i, arr) => {
-    if (i === 0) {
-      txtObj[idx].pointType = isAdd ? 'first' : undefined
-    }
-    if (i === arr.length - select.length) {
-      txtObj[idx].pointType = isAdd ? 'last' : undefined
-    }
-    // first === last, hint justOne
-    if (0 === arr.length - select.length) {
-      txtObj[idx].pointType = isAdd ? 'justOne' : undefined
-    }
+function txt2obj(block_txt: string) {
+  let _spk = false
+  const blockObj = [...block_txt].map(char => {
+    // 依据 spk 标记分割; 能不能通过css/reg搞定？
+    let spking = _spk
+    if (char === '“') spking = _spk = true
+    if (char === '”') _spk = false
 
-    if (isAdd) {
-      txtObj[idx].points += select + '-'
+    return { char, spking, points: '-' }
+  })
+
+  _selects.forEach(select => {
+    getWordPositionAll(block_txt, select)?.forEach(idx => {
+      blockObj[idx].points += select + '-'
+    })
+  })
+
+  return blockObj
+}
+function obj2render(obj: character[]) {
+  return obj.reduce((all: character[], { char, spking, points }, key) => {
+    if (key === 0) return [{ char, spking, points }]
+
+    const pre = all.at(-1)!
+    if (pre.spking === spking && pre.points === points) {
+      pre.char += char
     } else {
-      txtObj[idx].points = txtObj[idx].points.replace(`-${select}-`, '-')
+      all.push({ char, spking, points })
     }
+    return all
+  }, [])
+}
+function render2jsx(block: character[]) {
+  return (
+    <div style={block.style}>
+      {block.map(({ key, spking, points, pointType, char }) =>
+        spking || points != '-' ? (
+          <span
+            key={key}
+            {...(spking && { 'data-spking': '' })}
+            {...(points != '-' && {
+              className: points,
+              onClick: e => jumpHandle(e.currentTarget),
+              'point-type': pointType,
+            })}
+          >
+            {char}
+          </span>
+        ) : (
+          char
+        )
+      )}
+    </div>
+  )
+}
+
+// 增量修改arr_block_jsx
+function changeData(select: string, type: 'add' | 'del') {
+  arr_block_txt.forEach((block, i) => {
+    const r = getWordPositionAll(block, select)
+    if (!r?.length) return
+
+    r.forEach(idx => {
+      const target = arr_block_obj[i][idx]
+      if (type === 'add') {
+        target.points += select + '-'
+      } else {
+        target.points = target.points.replace(`-${select}-`, '-')
+      }
+    })
+    // console.log(33, r)
+
+    // console.time()
+    arr_block_render[i] = obj2render(arr_block_obj[i])
+    arr_block_jsx[i] = render2jsx(arr_block_render[i])
+    // console.timeEnd()
   })
 }
-
-function gene() {
-  // reduce 依据标记合并
-  let key = 0
-  const txtRender = txtObj.reduce(
-    (all: characterArr[], { content, spking, points, pointType }) => {
-      const preT = all.at(-1)!
-      const pre = preT.at(-1)
-
-      if (content === '\n') {
-        all.push([]) // new block
-
-        // 分割 尝试识别段落
-        const blockText = preT.map(e => e.content).join('')
-        preT.style = {
-          marginTop:
-            blockText.includes('第') &&
-            blockText.includes('章') &&
-            blockText.length < 30
-              ? '10em'
-              : '',
-        }
-
-        // 分割 语句
-        preT[0].content = preT[0].content.replace(/^/, '    ')
-        preT.forEach(block => {
-          block.content = block.content.replaceAll(
-            /。(?!($| |）|”))/gi,
-            '。\n    '
-          )
-        })
-
-        return all
-      }
-
-      if (
-        pre && // ?
-        pre.spking === spking &&
-        String(pre.points) === String(points) // 需不需要sort一下?
-      ) {
-        pre.content += content
-      } else {
-        preT.push({
-          content,
-          spking,
-          points,
-          pointType,
-          key,
-        })
-      }
-
-      key += content.length
-
-      return all
-    },
-    [[]]
-  )
-
-  // txtRender.ll
-
-  return txtRender
-}
-
 // 部分渲染
 export default function App() {
+  useEffect(() => {
+    html.scrollTop = Number(localStorage.getItem('scrollTop'))
+
+    window.onbeforeunload = () => {
+      localStorage.setItem('scrollTop', String(html.scrollTop))
+      window.d
+        ? localStorage.setItem('selects', JSON.stringify([]))
+        : localStorage.setItem('selects', JSON.stringify(selects))
+    }
+  }, [])
+
   const [selects, SETselects] = useState(_selects)
 
-  console.time()
-  const txtRender = gene()
-  console.timeEnd()
-
-  console.time()
-  const render = (
+  // 1 && return 1
+  return (
     <>
       <div id="reader" onClick={selectionHandle}>
-        {txtRender.map(block => (
-          <div style={block.style}>
-            {block.map(({ key, spking, points, pointType, content }) =>
-              spking || points != '-' ? (
-                <span
-                  key={key}
-                  {...(spking && { 'data-spking': '' })}
-                  {...(points != '-' && {
-                    className: points,
-                    onClick: e => jumpHandle(e.currentTarget),
-                    'point-type': pointType,
-                  })}
-                >
-                  {content}
-                </span>
-              ) : (
-                content
-              )
-            )}
-          </div>
-        ))}
+        {arr_block_jsx}
       </div>
 
       {/* 延迟? 优先render reader */}
@@ -163,17 +142,6 @@ export default function App() {
       </style>
     </>
   )
-  console.timeEnd()
-
-  window.onbeforeunload = () => {
-    localStorage.setItem('scrollTop', String(html.scrollTop))
-    localStorage.setItem('selects', JSON.stringify(selects))
-  }
-
-  useEffect(() => {
-    html.scrollTop = Number(localStorage.getItem('scrollTop'))
-  }, [])
-
   // add/remove select
   function selectionHandle() {
     const select = String(selection)
@@ -205,8 +173,6 @@ export default function App() {
       SETselects([...selects, select])
     }
   }
-
-  return render
 }
 
 const selection = getSelection()!

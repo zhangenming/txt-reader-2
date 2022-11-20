@@ -12,5 +12,6 @@ export default defineConfig({
   build: {
     sourcemap: true,
     target: 'chrome110',
+    minify:false
   },
 })

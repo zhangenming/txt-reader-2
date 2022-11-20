@@ -15,6 +15,7 @@ html {
   scroll-behavior: smooth;
   background: cornflowerblue;
 }
+
 ::selection {
   color: red;
   background: deepskyblue;
@@ -22,9 +23,10 @@ html {
 
 /* block */
 div {
-  margin-top: 4em;
+  margin-top: 2em;
   /* text-indent: 2em; */
 }
+
 /* block段落 */
 div:empty {
   height: 5em;
@@ -41,14 +43,17 @@ span[data-spking] {
 span[class][class] {
   color: black;
 }
+
 span[point-type='first'] {
   border-left: solid;
   border-radius: 7px;
 }
+
 span[point-type='last'] {
   border-right: solid;
   border-radius: 7px;
 }
+
 span[point-type='justOne'] {
   text-decoration: line-through dashed from-font;
 }
