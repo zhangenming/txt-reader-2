@@ -11,16 +11,16 @@ export function getDoms(selector: string, n?: number) {
 export function getWordPositionAll(str: string, word: string) {
   if (word === '') return undefined
 
+  const t = Array(word.length)
+    .fill(0)
+    .map((_, i) => i)
+
   const positions = []
   let pos = str.indexOf(word)
   while (pos !== -1) {
-    positions.push(pos)
+    positions.push(...t.map(e => e + pos))
     pos = str.indexOf(word, pos + word.length)
   }
 
-  return positions.flatMap(e =>
-    Array(word.length)
-      .fill(0)
-      .map((_, i) => e + i)
-  )
+  return positions
 }

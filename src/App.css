@@ -15,22 +15,33 @@ html {
   scroll-behavior: smooth;
   background: cornflowerblue;
 }
-
 ::selection {
   color: red;
   background: deepskyblue;
 }
 
-/* block */
-div {
-  margin-top: 2em;
-  /* text-indent: 2em; */
+::-webkit-scrollbar {
+  width: 10px;
+  background: antiquewhite;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #eae;
+  border: solid;
+  color: red;
+}
+::-webkit-scrollbar-track {
+  background: antiquewhite;
 }
 
+/* block */
+div {
+  margin-top: 4em;
+  /* text-indent: 2em; */
+}
 /* block段落 */
 div:empty {
   height: 5em;
-  background: red;
+  background: #eae;
 }
 
 /* spking */
@@ -43,17 +54,14 @@ span[data-spking] {
 span[class][class] {
   color: black;
 }
-
 span[point-type='first'] {
   border-left: solid;
   border-radius: 7px;
 }
-
 span[point-type='last'] {
   border-right: solid;
   border-radius: 7px;
 }
-
 span[point-type='justOne'] {
   text-decoration: line-through dashed from-font;
 }

@@ -1,38 +1,36 @@
-import _txt from '../txt/钱学森'
-const txt = _txt.replaceAll(/( *\n+ *)+/gi, '\n') //.slice(0, 11)
-
+import _txt from '../txt/欧维'
 import { getDom, getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
-type character = {
+
+const _selects: string[] =
+  JSON.parse(String(localStorage.getItem('selects'))) || []
+
+type block = {
   char: string
   spking: boolean
   points: string
   pointType?: 'first' | 'last' | 'justOne'
   key?: number
-}
-type characterArr = character[] & { style?: {} }
+}[]
 
-const _selects: string[] =
-  JSON.parse(String(localStorage.getItem('selects'))) || []
+const txt = _txt.replaceAll(/( *\n+ *)+/gi, '\n').slice(0, 1e6) // 7
 
-const arr_block_txt = txt.split('\n')
-
-console.time()
-const arr_block_obj = arr_block_txt.map(txt2obj)
-console.timeEnd()
+const blocks_str = txt
+  .split('\n')
+  .map(block => '    ' + block.replaceAll(/。(?!($| |）|”))/gi, '。\n\n    '))
 
 console.time()
-const arr_block_render = arr_block_obj.map(obj2render)
-console.timeEnd()
+const blocks_obj = blocks_str.map(txt2obj)
+const blocks_render = blocks_obj.map(obj2render)
+const blocks_jsx = blocks_render.map(render2jsx)
 
-console.time()
-const arr_block_jsx = arr_block_render.map(render2jsx)
+// const blocks_jsx = blocks_str.map(str => render2jsx(obj2render(txt2obj(str))))
 console.timeEnd()
 
 function txt2obj(block_txt: string) {
   let _spk = false
-  const blockObj = [...block_txt].map(char => {
+  const blockObj: block = [...block_txt].map(char => {
     // 依据 spk 标记分割; 能不能通过css/reg搞定？
     let spking = _spk
     if (char === '“') spking = _spk = true
@@ -49,8 +47,8 @@ function txt2obj(block_txt: string) {
 
   return blockObj
 }
-function obj2render(obj: character[]) {
-  return obj.reduce((all: character[], { char, spking, points }, key) => {
+function obj2render(obj: block) {
+  return obj.reduce((all: block, { char, spking, points }, key) => {
     if (key === 0) return [{ char, spking, points }]
 
     const pre = all.at(-1)!
@@ -62,7 +60,7 @@ function obj2render(obj: character[]) {
     return all
   }, [])
 }
-function render2jsx(block: character[]) {
+function render2jsx(block: block) {
   return (
     <div style={block.style}>
       {block.map(({ key, spking, points, pointType, char }) =>
@@ -88,12 +86,14 @@ function render2jsx(block: character[]) {
 
 // 增量修改arr_block_jsx
 function changeData(select: string, type: 'add' | 'del') {
-  arr_block_txt.forEach((block, i) => {
+  // if (select === '的') return
+
+  blocks_str.forEach((block, i) => {
     const r = getWordPositionAll(block, select)
     if (!r?.length) return
 
     r.forEach(idx => {
-      const target = arr_block_obj[i][idx]
+      const target = blocks_obj[i][idx]
       if (type === 'add') {
         target.points += select + '-'
       } else {
@@ -103,22 +103,19 @@ function changeData(select: string, type: 'add' | 'del') {
     // console.log(33, r)
 
     // console.time()
-    arr_block_render[i] = obj2render(arr_block_obj[i])
-    arr_block_jsx[i] = render2jsx(arr_block_render[i])
+    blocks_render[i] = obj2render(blocks_obj[i])
+    blocks_jsx[i] = render2jsx(blocks_render[i])
     // console.timeEnd()
   })
 }
 // 部分渲染
 export default function App() {
+  window.onbeforeunload = () => {
+    localStorage.setItem('scrollTop', String(html.scrollTop))
+    localStorage.setItem('selects', JSON.stringify(selects))
+  }
   useEffect(() => {
     html.scrollTop = Number(localStorage.getItem('scrollTop'))
-
-    window.onbeforeunload = () => {
-      localStorage.setItem('scrollTop', String(html.scrollTop))
-      window.d
-        ? localStorage.setItem('selects', JSON.stringify([]))
-        : localStorage.setItem('selects', JSON.stringify(selects))
-    }
   }, [])
 
   const [selects, SETselects] = useState(_selects)
@@ -127,7 +124,7 @@ export default function App() {
   return (
     <>
       <div id="reader" onClick={selectionHandle}>
-        {arr_block_jsx}
+        {blocks_jsx}
       </div>
 
       {/* 延迟? 优先render reader */}
