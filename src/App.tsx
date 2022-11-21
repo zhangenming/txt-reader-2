@@ -25,13 +25,13 @@ console.time()
 const blocks_obj = blocks_str.map(txt2obj)
 const blocks_render = blocks_obj.map(obj2render)
 const blocks_jsx = blocks_render.map(render2jsx)
-
+_selects.forEach(select => changeData(select, 'add'))
 // const blocks_jsx = blocks_str.map(str => render2jsx(obj2render(txt2obj(str))))
 console.timeEnd()
 
 function txt2obj(block_txt: string) {
   let _spk = false
-  const blockObj: block = [...block_txt].map((char, i, arr) => {
+  return [...block_txt].map((char, i, arr) => {
     // 依据 spk 标记分割; 能不能通过css/reg搞定？
     let spking = _spk
     if (char === '“') spking = _spk = true
@@ -47,29 +47,23 @@ function txt2obj(block_txt: string) {
     )
       char += '\n'
 
-    if (!spking && char === '，' && arr[i + 1] !== '“') char += '\n'
+    if (!spking && ['，', '；'].includes(char) && arr[i + 1] !== '“')
+      char += '\n'
+
     if (!spking && ['。', '？', '！'].includes(char)) char += '\n\n'
 
     return { char, spking, points: '-' }
-  })
-
-  _selects.forEach(select => {
-    getWordPositionAll(block_txt, select)?.forEach(idx => {
-      blockObj[idx].points += select + '-'
-    })
-  })
-
-  return blockObj
+  }) as block
 }
 function obj2render(obj: block) {
-  return obj.reduce((all: block, { char, spking, points }, key) => {
-    if (key === 0) return [{ char, spking, points }]
+  return obj.reduce((all: block, { char, spking, points, pointType }, key) => {
+    if (key === 0) return [{ char, spking, points, pointType }]
 
     const pre = all.at(-1)!
-    if (pre.spking === spking && pre.points === points) {
+    if (pre.spking === spking && pre.points === points && points.length !== 3) {
       pre.char += char
     } else {
-      all.push({ char, spking, points })
+      all.push({ char, spking, points, pointType })
     }
     return all
   }, [])
@@ -102,24 +96,31 @@ function render2jsx(block: block, key: number) {
 function changeData(select: string, type: 'add' | 'del') {
   // if (select === '的') return
 
+  const isAdd = type === 'add'
+  const first = blocks_str.findIndex(e => e.includes(select))
+  const last = (blocks_str as any).findLastIndex((e: string) =>
+    e.includes(select)
+  )
+
   blocks_str.forEach((block, i) => {
     const r = getWordPositionAll(block, select)
     if (!r?.length) return
 
-    r.forEach(idx => {
+    r.forEach((idx, j) => {
       const target = blocks_obj[i][idx]
-      if (type === 'add') {
-        target.points += select + '-'
-      } else {
-        target.points = target.points.replace(`-${select}-`, '-')
-      }
-    })
-    // console.log(33, r)
 
-    // console.time()
+      target.points = isAdd
+        ? target.points + select + '-'
+        : target.points.replace(`-${select}-`, '-')
+
+      if (i === first && j === 0) target.pointType = isAdd ? 'first' : undefined
+
+      if (i === last && j === r.length - select.length)
+        target.pointType = isAdd ? 'last' : undefined
+    })
+
     blocks_render[i] = obj2render(blocks_obj[i])
     blocks_jsx[i] = render2jsx(blocks_render[i], i)
-    // console.timeEnd()
   })
 }
 // 部分渲染
