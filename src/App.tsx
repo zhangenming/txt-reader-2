@@ -16,9 +16,10 @@ type block = {
 
 const txt = _txt.replaceAll(/( *\n+ *)+/gi, '\n').slice(0, 1e6) // 7
 
-const blocks_str = txt
-  .split('\n')
-  .map(block => '    ' + block.replaceAll(/。(?!($| |）|”))/gi, '。\n\n    '))
+const blocks_str = txt.split('\n')
+// .map(block =>
+//   block.replaceAll(/。(?!($|）|”))/gi, '。\n\n').replaceAll(/，/gi, '，\n')
+// )
 
 console.time()
 const blocks_obj = blocks_str.map(txt2obj)
@@ -30,11 +31,24 @@ console.timeEnd()
 
 function txt2obj(block_txt: string) {
   let _spk = false
-  const blockObj: block = [...block_txt].map(char => {
+  const blockObj: block = [...block_txt].map((char, i, arr) => {
     // 依据 spk 标记分割; 能不能通过css/reg搞定？
     let spking = _spk
     if (char === '“') spking = _spk = true
     if (char === '”') _spk = false
+
+    // if (i === 0) char = '    ' + char
+
+    // if (char === '：' && arr[i + 1] === '“') char += '\n'
+    if (
+      char === '”' &&
+      ['。', '？', '！'].includes(arr[i - 1]) &&
+      arr[i + 1] !== '，'
+    )
+      char += '\n'
+
+    if (!spking && char === '，' && arr[i + 1] !== '“') char += '\n'
+    if (!spking && ['。', '？', '！'].includes(char)) char += '\n\n'
 
     return { char, spking, points: '-' }
   })
@@ -60,10 +74,10 @@ function obj2render(obj: block) {
     return all
   }, [])
 }
-function render2jsx(block: block) {
+function render2jsx(block: block, key: number) {
   return (
-    <div style={block.style}>
-      {block.map(({ key, spking, points, pointType, char }) =>
+    <div style={block.style} key={key}>
+      {block.map(({ spking, points, pointType, char }, key) =>
         spking || points != '-' ? (
           <span
             key={key}
@@ -104,7 +118,7 @@ function changeData(select: string, type: 'add' | 'del') {
 
     // console.time()
     blocks_render[i] = obj2render(blocks_obj[i])
-    blocks_jsx[i] = render2jsx(blocks_render[i])
+    blocks_jsx[i] = render2jsx(blocks_render[i], i)
     // console.timeEnd()
   })
 }
@@ -120,7 +134,6 @@ export default function App() {
 
   const [selects, SETselects] = useState(_selects)
 
-  // 1 && return 1
   return (
     <>
       <div id="reader" onClick={selectionHandle}>
