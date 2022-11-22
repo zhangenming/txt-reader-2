@@ -1,4 +1,5 @@
-import _txt from '../txt/欧维'
+import _txt from '../txt/诡秘之主'
+
 import { getDom, getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
@@ -11,67 +12,89 @@ type block = {
   spking: boolean
   points: string
   pointType?: 'first' | 'last' | 'justOne'
-  key?: number
+  key?: number | string
 }[]
 
 const txt = _txt.replaceAll(/( *\n+ *)+/gi, '\n').slice(0, 1e6) // 7
 
 const blocks_str = txt.split('\n')
-// .map(block =>
-//   block.replaceAll(/。(?!($|）|”))/gi, '。\n\n').replaceAll(/，/gi, '，\n')
-// )
-
-console.time()
 const blocks_obj = blocks_str.map(txt2obj)
+
+_selects.forEach(select => changeData(select, 'add', false))
+//cache to disk? 压缩
+
 const blocks_render = blocks_obj.map(obj2render)
 const blocks_jsx = blocks_render.map(render2jsx)
-_selects.forEach(select => changeData(select, 'add'))
 // const blocks_jsx = blocks_str.map(str => render2jsx(obj2render(txt2obj(str))))
-console.timeEnd()
 
 function txt2obj(block_txt: string) {
   let _spk = false
-  return [...block_txt].map((char, i, arr) => {
+  let spk_0 = 0
+  const block: block = [...block_txt].map((curChar, i, arr) => {
     // 依据 spk 标记分割; 能不能通过css/reg搞定？
     let spking = _spk
-    if (char === '“') spking = _spk = true
-    if (char === '”') _spk = false
+    if (curChar === '“') spking = _spk = true
+    if (curChar === '”') _spk = false
 
-    // if (i === 0) char = '    ' + char
+    // let spking = _spk
+    // if (char === '"') spk_0++
+    // if (spk_0 % 2 === 1) spking = _spk = true
+    // if (spk_0 % 2 === 1) _spk = false
+    const preChar = arr[i - 1]
+    const nextChar = arr[i + 1]
 
-    // if (char === '：' && arr[i + 1] === '“') char += '\n'
+    if (nextChar == '“' && ['。', '？', '！'].includes(preChar))
+      curChar += ' \n'
+
+    if (curChar == '：' && nextChar == '“') curChar += ' \n'
+
     if (
-      char === '”' &&
-      ['。', '？', '！'].includes(arr[i - 1]) &&
-      arr[i + 1] !== '，'
+      curChar == '”' &&
+      ['。', '？', '！', '…'].includes(preChar) &&
+      nextChar != '，'
     )
-      char += '\n'
+      curChar += ' \n'
 
-    if (!spking && ['，', '；'].includes(char) && arr[i + 1] !== '“')
-      char += '\n'
+    if (curChar === '。' && nextChar != '）') {
+      curChar += spking ? ' \n' : ' \n\n'
+    }
+    if (['？', '！'].includes(curChar) && nextChar != '）') {
+      curChar += spking ? ' ' : ' \n'
+    }
 
-    if (!spking && ['。', '？', '！'].includes(char)) char += '\n\n'
+    if (['，', '；', '）'].includes(curChar) && nextChar != '“')
+      curChar += spking ? ' ' : ' \n'
 
-    return { char, spking, points: '-' }
-  }) as block
+    if (curChar == '…' && preChar == '…' && nextChar != '”') curChar += ' \n'
+
+    return { char: curChar, spking, points: '-' }
+  })
+  return block
 }
-function obj2render(obj: block) {
-  return obj.reduce((all: block, { char, spking, points, pointType }, key) => {
-    if (key === 0) return [{ char, spking, points, pointType }]
 
+function obj2render(obj: block) {
+  const x = obj.reduce((all: block, cur, key) => {
+    if (key === 0) return [{ ...cur, key }]
+
+    const { char, spking, points } = cur
     const pre = all.at(-1)!
+
     if (pre.spking === spking && pre.points === points && points.length !== 3) {
       pre.char += char
     } else {
-      all.push({ char, spking, points, pointType })
+      all.push({ ...cur, key })
     }
     return all
   }, [])
+  // x.forEach((e, i) => {
+  //   e.key += e.char
+  // })
+  return x
 }
 function render2jsx(block: block, key: number) {
   return (
     <div style={block.style} key={key}>
-      {block.map(({ spking, points, pointType, char }, key) =>
+      {block.map(({ spking, points, pointType, char, key }) =>
         spking || points != '-' ? (
           <span
             key={key}
@@ -93,14 +116,19 @@ function render2jsx(block: block, key: number) {
 }
 
 // 增量修改arr_block_jsx
-function changeData(select: string, type: 'add' | 'del') {
+function changeData(
+  select: string,
+  type: 'add' | 'del',
+  render: boolean = true
+) {
   // if (select === '的') return
 
-  const isAdd = type === 'add'
+  const isAdd = type === 'add' || undefined //add-true del-undefined
   const first = blocks_str.findIndex(e => e.includes(select))
   const last = (blocks_str as any).findLastIndex((e: string) =>
     e.includes(select)
   )
+  const justOne = getWordPositionAll(txt, select)!.length / select.length === 1
 
   blocks_str.forEach((block, i) => {
     const r = getWordPositionAll(block, select)
@@ -113,14 +141,18 @@ function changeData(select: string, type: 'add' | 'del') {
         ? target.points + select + '-'
         : target.points.replace(`-${select}-`, '-')
 
-      if (i === first && j === 0) target.pointType = isAdd ? 'first' : undefined
+      if (first === i && j === 0) target.pointType = isAdd && 'first'
 
-      if (i === last && j === r.length - select.length)
-        target.pointType = isAdd ? 'last' : undefined
+      if (last === i && j === r.length - select.length)
+        target.pointType = isAdd && 'last'
+
+      if (justOne) target.pointType = isAdd && 'justOne'
     })
 
-    blocks_render[i] = obj2render(blocks_obj[i])
-    blocks_jsx[i] = render2jsx(blocks_render[i], i)
+    if (render) {
+      blocks_render[i] = obj2render(blocks_obj[i])
+      blocks_jsx[i] = render2jsx(blocks_render[i], i)
+    }
   })
 }
 // 部分渲染
@@ -137,7 +169,7 @@ export default function App() {
 
   return (
     <>
-      <div id="reader" onClick={selectionHandle}>
+      <div id="reader" onClick={() => selectionHandle(selects, SETselects)}>
         {blocks_jsx}
       </div>
 
@@ -149,65 +181,50 @@ export default function App() {
             select =>
               `#reader:has([class*="-${select}-"]:hover) [class*="-${select}-"]`
           )
-          .join(',\n') + '{ outline:solid!important }'}
+          .join(',\n') + '{ background:var(--hover) }'}
       </style>
     </>
   )
-  // add/remove select
-  function selectionHandle() {
-    const select = String(selection)
-    selection.removeAllRanges()
-    if (!select || select.includes('\n')) return
+}
 
-    if (selects.includes(select)) {
-      del()
-    } else {
-      add()
+// add/remove select
+function selectionHandle(
+  selects: string[],
+  SETselects: React.Dispatch<React.SetStateAction<string[]>>
+) {
+  const select = String(selection)
+  selection.removeAllRanges()
+  if (!select || select.includes('\n')) return
 
-      const count = getWordPositionAll(txt, select)!.length / select.length
-      console.log(count)
+  if (selects.includes(select)) {
+    del()
+  } else {
+    add()
 
-      // justOne
-      if (count === 1) {
-        setTimeout(del, 1000)
-      }
+    const count = getWordPositionAll(txt, select)!.length / select.length
+    console.log(count)
 
-      // justOneScreen
-      // 判断所有元素是否在屏幕内
+    // justOne
+    if (count === 1) {
+      setTimeout(del, 1000)
     }
-    function del() {
-      changeData(select, 'del')
-      SETselects(selects.filter(e => e !== select))
-    }
-    function add() {
-      changeData(select, 'add')
-      SETselects([...selects, select])
-    }
+
+    // justOneScreen
+    // 判断所有元素是否在屏幕内
+  }
+
+  function del() {
+    changeData(select, 'del')
+    SETselects(selects.filter(e => e !== select))
+  }
+  function add() {
+    changeData(select, 'add')
+    SETselects([...selects, select])
   }
 }
 
-const selection = getSelection()!
-const html = document.documentElement
-
-const keysHold: { [key: string]: boolean } = {}
-document.addEventListener('keyup', ({ key }) => {
-  keysHold[key] = false
-})
-document.addEventListener('keydown', e => {
-  keysHold[e.key] = true
-
-  if (e.key === 'Alt') {
-    // if (!autoSelect) {
-    //   autoSelect = getDom('span[class]:hover')
-    // }
-
-    e.preventDefault()
-    jumpHandle()
-  }
-})
-
-let autoSelect: any = { style: {} }
-function jumpHandle({ innerText: select, offsetTop } = autoSelect) {
+let autoSelect: any = {}
+function jumpHandle({ innerText: select, offsetTop }: any) {
   if (String(selection)) return
 
   // active select
@@ -219,8 +236,7 @@ function jumpHandle({ innerText: select, offsetTop } = autoSelect) {
   }
 
   // active word
-  autoSelect.style.background = ''
-  autoSelect.style.outline = ''
+  autoSelect.classList?.remove('activeSelectNow')
 
   autoSelect = (() => {
     const { Control /* 到底 */, Shift /* 反向 */ } = keysHold
@@ -239,8 +255,27 @@ function jumpHandle({ innerText: select, offsetTop } = autoSelect) {
     return doms.find(e => e.offsetTop > offsetTop) || doms[0] // next
   })()
 
-  autoSelect.style.outline = 'brown solid 5px'
-  autoSelect.style.background = '#eae'
+  autoSelect.classList.add('activeSelectNow')
 
   html.scrollTop += autoSelect.offsetTop - offsetTop
 }
+
+const selection = getSelection()!
+const html = document.documentElement
+
+const keysHold: { [key: string]: boolean } = {}
+document.addEventListener('keyup', ({ key }) => {
+  keysHold[key] = false
+})
+document.addEventListener('keydown', e => {
+  keysHold[e.key] = true
+
+  if (e.key === 'Alt') {
+    // if (!autoSelect) {
+    //   autoSelect = getDom('span[class]:hover')
+    // }
+
+    e.preventDefault()
+    jumpHandle(autoSelect)
+  }
+})

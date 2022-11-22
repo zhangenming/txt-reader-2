@@ -1,36 +1,40 @@
+:root {
+  scroll-behavior: smooth;
+  font-family: fangsong;
+  font-size: 27px;
+  color: #d4cde5;
+  background-color: #0a0c10;
+  --select: #57bafc;
+  --select-active: #037005;
+  --select-active-now: #000fc3;
+  --hover: brown;
+
+  --spk: #035431;
+}
 #reader {
   word-break: break-word;
   /* word-spacing: initial; */
   white-space: break-spaces;
   letter-spacing: -2px;
-  text-align: justify;
+  text-align: right;
   line-height: 1em;
-
-  font-family: fangsong;
-  font-size: 27px;
-  color: #faffef;
 }
 
-html {
-  scroll-behavior: smooth;
-  background: cornflowerblue;
-}
 ::selection {
   color: red;
-  background: deepskyblue;
+  background-color: deepskyblue;
 }
-
 ::-webkit-scrollbar {
   width: 10px;
-  background: antiquewhite;
+  background-color: antiquewhite;
 }
 ::-webkit-scrollbar-thumb {
-  background-color: #eae;
+  background-color-color: #eae;
   border: solid;
   color: red;
 }
 ::-webkit-scrollbar-track {
-  background: antiquewhite;
+  background-color: antiquewhite;
 }
 
 /* block */
@@ -41,18 +45,25 @@ div {
 /* block段落 */
 div:empty {
   height: 5em;
-  background: #eae;
+  background-color: #eae;
 }
 
 /* spking */
 span[data-spking] {
-  background: #3da3eb;
+  background-color: var(--spk);
   /* padding: 0.2em; */
 }
 
 /* select */
 span[class][class] {
-  color: black;
+  color: var(--select);
+}
+span.activeSelect {
+  background-color: var(--select-active);
+}
+span.activeSelectNow.activeSelectNow {
+  outline: var(--select-active) solid 5px;
+  background: var(--select-active-now);
 }
 span[point-type='first'] {
   border-left: solid;
@@ -64,8 +75,4 @@ span[point-type='last'] {
 }
 span[point-type='justOne'] {
   text-decoration: line-through dashed from-font;
-}
-
-span.activeSelect {
-  background: #ffb9ff;
 }
