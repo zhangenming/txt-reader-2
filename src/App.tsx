@@ -15,9 +15,20 @@ type block = {
   key?: number | string
 }[]
 
-const txt = _txt.replaceAll(/( *\n+ *)+/gi, '\n').slice(0, 1e6) // 7
+const txt = _txt.replaceAll(/( *\n+ *)+/gi, '\n    ') //.slice(0, 1e6)
 
 const blocks_str = txt.split('\n')
+// .reduce((all: string[], now, i, arr) => {
+//   if (
+//     // now.length < 50 &&
+//     (getWordPositionAll(now, '。')?.length || 0) <= 1
+//   ) {
+//     all[all.length - 1] += now.slice(4)
+//   } else {
+//     all.push(now)
+//   }
+//   return all
+// }, [])
 const blocks_obj = blocks_str.map(txt2obj)
 
 _selects.forEach(select => changeData(select, 'add', false))
@@ -40,32 +51,40 @@ function txt2obj(block_txt: string) {
     // if (char === '"') spk_0++
     // if (spk_0 % 2 === 1) spking = _spk = true
     // if (spk_0 % 2 === 1) _spk = false
+    const pre2Char = arr[i - 2]
     const preChar = arr[i - 1]
     const nextChar = arr[i + 1]
 
-    if (nextChar == '“' && ['。', '？', '！'].includes(preChar))
-      curChar += ' \n'
-
-    if (curChar == '：' && nextChar == '“') curChar += ' \n'
-
-    if (
-      curChar == '”' &&
-      ['。', '？', '！', '…'].includes(preChar) &&
-      nextChar != '，'
-    )
-      curChar += ' \n'
-
-    if (curChar === '。' && nextChar != '）') {
-      curChar += spking ? ' \n' : ' \n\n'
-    }
-    if (['？', '！'].includes(curChar) && nextChar != '）') {
-      curChar += spking ? ' ' : ' \n'
+    if (curChar === '。' && nextChar && !spking) {
+      curChar += '\n\n    '
     }
 
-    if (['，', '；', '）'].includes(curChar) && nextChar != '“')
-      curChar += spking ? ' ' : ' \n'
+    if (['。', '？', '！', '…'].includes(pre2Char) && preChar == '”')
+      curChar = '\n\n    ' + curChar
 
-    if (curChar == '…' && preChar == '…' && nextChar != '”') curChar += ' \n'
+    // if (nextChar == '“' && ['。', '？', '！'].includes(preChar))
+    //   curChar += ' \n'
+
+    // if (curChar == '：' && nextChar == '“') curChar += ' \n'
+
+    // if (
+    //   curChar == '”' &&
+    //   ['。', '？', '！', '…'].includes(preChar) &&
+    //   nextChar != '，'
+    // )
+    //   curChar += ' \n'
+
+    // if (curChar === '。' && nextChar != '）') {
+    //   curChar += spking ? ' \n' : ' \n\n'
+    // }
+    // if (['？', '！'].includes(curChar) && nextChar != '）') {
+    //   curChar += spking ? ' ' : ' \n'
+    // }
+
+    // if (['，', '；', '）'].includes(curChar) && nextChar != '“')
+    //   curChar += spking ? ' ' : ' \n'
+
+    // if (curChar == '…' && preChar == '…' && nextChar != '”') curChar += ' \n'
 
     return { char: curChar, spking, points: '-' }
   })
@@ -86,33 +105,34 @@ function obj2render(obj: block) {
     }
     return all
   }, [])
-  // x.forEach((e, i) => {
-  //   e.key += e.char
-  // })
   return x
 }
 function render2jsx(block: block, key: number) {
+  const res = block.map(({ spking, points, pointType, char, key }) =>
+    spking || points != '-' ? (
+      <span
+        key={key}
+        {...(spking && { 'data-spking': '' })}
+        {...(points != '-' && {
+          className: points,
+          onClick: e => jumpHandle(e.currentTarget),
+          'point-type': pointType,
+        })}
+      >
+        {char}
+      </span>
+    ) : (
+      char
+    )
+  )
+
   return (
     <div style={block.style} key={key}>
-      {block.map(({ spking, points, pointType, char, key }) =>
-        spking || points != '-' ? (
-          <span
-            key={key}
-            {...(spking && { 'data-spking': '' })}
-            {...(points != '-' && {
-              className: points,
-              onClick: e => jumpHandle(e.currentTarget),
-              'point-type': pointType,
-            })}
-          >
-            {char}
-          </span>
-        ) : (
-          char
-        )
-      )}
+      {res}
     </div>
   )
+
+  // return [res, '\n']
 }
 
 // 增量修改arr_block_jsx
@@ -224,7 +244,13 @@ function selectionHandle(
 }
 
 let autoSelect: any = {}
-function jumpHandle({ innerText: select, offsetTop }: any) {
+function jumpHandle({
+  innerText: select,
+  offsetTop,
+}: {
+  innerText: string
+  offsetTop: number
+}) {
   if (String(selection)) return
 
   // active select

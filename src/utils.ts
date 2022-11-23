@@ -8,7 +8,7 @@ export function getDoms(selector: string, n?: number) {
   )
 }
 
-export function getWordPositionAll(str: string, word: string) {
+export function getWordPositionAll(str: string = '', word: string) {
   if (word === '') return undefined
 
   const t = Array(word.length)
