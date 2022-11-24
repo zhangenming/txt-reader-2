@@ -1,4 +1,4 @@
-import _txt from '../txt/诡秘之主'
+import _txt from '../txt/恶意'
 
 import { getDom, getDoms, getWordPositionAll } from './utils'
 import './App.css'
@@ -15,52 +15,57 @@ type block = {
   key?: number | string
 }[]
 
-const txt = _txt.replaceAll(/( *\n+ *)+/gi, '\n    ') //.slice(0, 1e6)
+const txt = _txt
+  // .replaceAll(/\n\n/gi, '')
+  .replaceAll(/( *\n+ *)+/gi, '\n    ')
+//  .replaceAll(/\n    “/gi, '“') //.slice(0, 1e6)
 
 const blocks_str = txt.split('\n')
-// .reduce((all: string[], now, i, arr) => {
-//   if (
-//     // now.length < 50 &&
-//     (getWordPositionAll(now, '。')?.length || 0) <= 1
-//   ) {
-//     all[all.length - 1] += now.slice(4)
-//   } else {
-//     all.push(now)
-//   }
-//   return all
-// }, [])
+
 const blocks_obj = blocks_str.map(txt2obj)
 
 _selects.forEach(select => changeData(select, 'add', false))
-//cache to disk? 压缩
 
 const blocks_render = blocks_obj.map(obj2render)
 const blocks_jsx = blocks_render.map(render2jsx)
+//cache jsx to disk? 压缩
 // const blocks_jsx = blocks_str.map(str => render2jsx(obj2render(txt2obj(str))))
 
 function txt2obj(block_txt: string) {
   let _spk = false
   let spk_0 = 0
   const block: block = [...block_txt].map((curChar, i, arr) => {
+    const pre2Char = arr[i - 2]
+    const preChar = arr[i - 1]
+    const nextChar = arr[i + 1]
+
+    if (curChar === '：' && nextChar != '“')
+      return { char: curChar, spking: true, points: '-' }
+
     // 依据 spk 标记分割; 能不能通过css/reg搞定？
     let spking = _spk
-    if (curChar === '“') spking = _spk = true
-    if (curChar === '”') _spk = false
+    if (curChar === '“') _spk = true
+    if (curChar === '”') spking = _spk = false
 
     // let spking = _spk
     // if (char === '"') spk_0++
     // if (spk_0 % 2 === 1) spking = _spk = true
     // if (spk_0 % 2 === 1) _spk = false
-    const pre2Char = arr[i - 2]
-    const preChar = arr[i - 1]
-    const nextChar = arr[i + 1]
+    const sentenceFlag = ['。', '？', '！', '…']
 
-    if (curChar === '。' && nextChar && !spking) {
-      curChar += '\n\n    '
+    if (!spking && nextChar) {
+      if (sentenceFlag.includes(preChar) && curChar === '”')
+        curChar = curChar + '\n\n    '
+
+      if (sentenceFlag.includes(curChar) && !sentenceFlag.includes(nextChar))
+        // 排除……或者?!这种两个标点连在一起的
+        curChar = curChar + '\n\n    '
+
+      if (curChar === '—' && nextChar === '—') curChar = '\n\n    ' + curChar
     }
 
-    if (['。', '？', '！', '…'].includes(pre2Char) && preChar == '”')
-      curChar = '\n\n    ' + curChar
+    // if (sentenceFlag.includes(pre2Char) && preChar == '”')
+    //   curChar = '\n\n    ' + curChar
 
     // if (nextChar == '“' && ['。', '？', '！'].includes(preChar))
     //   curChar += ' \n'
@@ -69,7 +74,7 @@ function txt2obj(block_txt: string) {
 
     // if (
     //   curChar == '”' &&
-    //   ['。', '？', '！', '…'].includes(preChar) &&
+    //   sentenceFlag.includes(preChar) &&
     //   nextChar != '，'
     // )
     //   curChar += ' \n'
