@@ -2,14 +2,15 @@
   scroll-behavior: smooth;
   font-family: fangsong;
   font-size: 27px;
-  color: #d4cde5;
-  background-color: #0a0c10;
-  --select: #57bafc;
+  color: white;
+  background-color: #7da1e9;
+  --select: #72fc09;
   --select-active: #037005;
-  --select-active-now: #000fc3;
+  --select-active-now-bg: #000fc3;
+  --select-active-now-outline: #e7142f;
   --hover: brown;
 
-  --spk: #035431;
+  --spk: #0063a5;
 }
 #reader {
   word-break: break-word;
@@ -22,15 +23,16 @@
 
 /* block */
 #reader div {
-  background: #333;
+  background-color: #32624c;
   border-radius: 5px;
   padding: 0.3em 0.2em;
-  margin: 2em 0;
+  margin-top: 1%;
 }
 /* block段落 */
-div:empty {
-  height: 5em;
-  background-color: #eae;
+#reader div:empty {
+  /* height: 5em; */
+  background-color: #11f7cd;
+  border-radius: 0px;
 }
 
 /* spking */
@@ -47,8 +49,8 @@ span.activeSelect {
   background-color: var(--select-active);
 }
 span.activeSelectNow.activeSelectNow {
-  outline: var(--select-active) solid 5px;
-  background: var(--select-active-now);
+  outline: var(--select-active-now-outline) solid 5px;
+  background: var(--select-active-now-bg);
 }
 span[point-type='first'] {
   border-left: solid;

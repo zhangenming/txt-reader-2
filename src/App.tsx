@@ -1,5 +1,5 @@
-import _txt from '../txt/恶意'
-
+import _txt from '../txt/黄金时代 (王小波) (z-lib.org)'
+//
 import { getDom, getDoms, getWordPositionAll } from './utils'
 import './App.css'
 import { useEffect, useState } from 'react'
@@ -17,10 +17,24 @@ type block = {
 
 const txt = _txt
   // .replaceAll(/\n\n/gi, '')
-  .replaceAll(/( *\n+ *)+/gi, '\n    ')
+  .replaceAll(/ *\n{1,2} *(?!\n)/gi, '\n    ')
 //  .replaceAll(/\n    “/gi, '“') //.slice(0, 1e6)
 
-const blocks_str = txt.split('\n')
+const blocks_str = txt.split('\n').reduce((all: string[], now) => {
+  if (
+    now.length != 0 &&
+    all[all.length - 1]?.length != 0 &&
+    (getWordPositionAll(now, '。')?.length! <= 2 ||
+      (now.includes('“') && now.endsWith('”')))
+  ) {
+    all[all.length - 1] += '-' + now.slice(4)
+  } else {
+    all.push(now)
+  }
+  return all
+}, [])
+
+// a || (a && b) === a
 
 const blocks_obj = blocks_str.map(txt2obj)
 
@@ -54,14 +68,28 @@ function txt2obj(block_txt: string) {
     const sentenceFlag = ['。', '？', '！', '…']
 
     if (!spking && nextChar) {
+      // if ((sentenceFlag.includes(preChar) || preChar == '—') && curChar === '”')
+      //   curChar = curChar + '\n\n    '
+      if (curChar == '”' && nextChar == '“') curChar = curChar + '\n    '
+
       if (sentenceFlag.includes(preChar) && curChar === '”')
         curChar = curChar + '\n\n    '
+      if (
+        preChar != '”' &&
+        preChar != ' ' &&
+        preChar != '。' &&
+        curChar === '—' &&
+        nextChar === '—'
+      )
+        curChar = '\n    ' + curChar
 
-      if (sentenceFlag.includes(curChar) && !sentenceFlag.includes(nextChar))
+      if (
+        sentenceFlag.includes(curChar) &&
+        !sentenceFlag.includes(nextChar) &&
+        nextChar != '）'
+      )
         // 排除……或者?!这种两个标点连在一起的
         curChar = curChar + '\n\n    '
-
-      if (curChar === '—' && nextChar === '—') curChar = '\n\n    ' + curChar
     }
 
     // if (sentenceFlag.includes(pre2Char) && preChar == '”')
@@ -131,11 +159,10 @@ function render2jsx(block: block, key: number) {
     )
   )
 
-  return (
-    <div style={block.style} key={key}>
-      {res}
-    </div>
-  )
+  const marginBottom =
+    block.map(e => e.char.length).reduce((q, w) => q + w, 0) / 200 + 'em'
+
+  return <div key={key}>{res}</div>
 
   // return [res, '\n']
 }
