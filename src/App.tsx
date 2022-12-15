@@ -1,11 +1,7 @@
-import _txt from '../txt/黄金时代 (王小波) (z-lib.org)'
-//
-import { getDom, getDoms, getWordPositionAll } from './utils'
-import './App.css'
-import { useEffect, useState } from 'react'
+const fileName = 'x'
 
-const _selects: string[] =
-  JSON.parse(String(localStorage.getItem('selects'))) || []
+import { useEffect, useState } from 'react'
+import { getDom, getDoms, getWordPositionAll } from './utils'
 
 type block = {
   char: string
@@ -14,13 +10,15 @@ type block = {
   pointType?: 'first' | 'last' | 'justOne'
   key?: number | string
 }[]
+const _selects: string[] =
+  JSON.parse(String(localStorage.getItem('selects'))) || []
 
-const txt = _txt
-  // .replaceAll(/\n\n/gi, '')
-  .replaceAll(/ *\n{1,2} *(?!\n)/gi, '\n    ')
-//  .replaceAll(/\n    “/gi, '“') //.slice(0, 1e6)
+let txt: string = (
+  await import(`../txt/${fileName}.txt?raw`)
+).default.replaceAll(/ *\n{1,2} *(?!\n)/gi, '\n    ')
 
-const blocks_str = txt.split('\n').reduce((all: string[], now) => {
+const blocks_str = txt.split('\n')
+;[].reduce((all: string[], now) => {
   if (
     now.length != 0 &&
     all[all.length - 1]?.length != 0 &&
@@ -34,15 +32,10 @@ const blocks_str = txt.split('\n').reduce((all: string[], now) => {
   return all
 }, [])
 
-// a || (a && b) === a
-
 const blocks_obj = blocks_str.map(txt2obj)
-
-_selects.forEach(select => changeData(select, 'add', false))
-
 const blocks_render = blocks_obj.map(obj2render)
 const blocks_jsx = blocks_render.map(render2jsx)
-//cache jsx to disk? 压缩
+// cache jsx to disk? 压缩
 // const blocks_jsx = blocks_str.map(str => render2jsx(obj2render(txt2obj(str))))
 
 function txt2obj(block_txt: string) {
@@ -65,23 +58,9 @@ function txt2obj(block_txt: string) {
     // if (char === '"') spk_0++
     // if (spk_0 % 2 === 1) spking = _spk = true
     // if (spk_0 % 2 === 1) _spk = false
-    const sentenceFlag = ['。', '？', '！', '…']
 
     if (!spking && nextChar) {
-      // if ((sentenceFlag.includes(preChar) || preChar == '—') && curChar === '”')
-      //   curChar = curChar + '\n\n    '
-      if (curChar == '”' && nextChar == '“') curChar = curChar + '\n    '
-
-      if (sentenceFlag.includes(preChar) && curChar === '”')
-        curChar = curChar + '\n\n    '
-      if (
-        preChar != '”' &&
-        preChar != ' ' &&
-        preChar != '。' &&
-        curChar === '—' &&
-        nextChar === '—'
-      )
-        curChar = '\n    ' + curChar
+      const sentenceFlag = ['。', '？', '！', '…']
 
       if (
         sentenceFlag.includes(curChar) &&
@@ -90,6 +69,20 @@ function txt2obj(block_txt: string) {
       )
         // 排除……或者?!这种两个标点连在一起的
         curChar = curChar + '\n\n    '
+
+      // if (curChar == '”' && nextChar == '“') curChar = curChar + '\n    '
+
+      // if (sentenceFlag.includes(preChar) && curChar === '”')
+      //   curChar = curChar + '\n\n    '
+
+      // if (
+      //   preChar != '”' &&
+      //   preChar != ' ' &&
+      //   preChar != '。' &&
+      //   curChar === '—' &&
+      //   nextChar === '—'
+      // )
+      //   curChar = '\n    ' + curChar
     }
 
     // if (sentenceFlag.includes(pre2Char) && preChar == '”')
@@ -167,46 +160,6 @@ function render2jsx(block: block, key: number) {
   // return [res, '\n']
 }
 
-// 增量修改arr_block_jsx
-function changeData(
-  select: string,
-  type: 'add' | 'del',
-  render: boolean = true
-) {
-  // if (select === '的') return
-
-  const isAdd = type === 'add' || undefined //add-true del-undefined
-  const first = blocks_str.findIndex(e => e.includes(select))
-  const last = (blocks_str as any).findLastIndex((e: string) =>
-    e.includes(select)
-  )
-  const justOne = getWordPositionAll(txt, select)!.length / select.length === 1
-
-  blocks_str.forEach((block, i) => {
-    const r = getWordPositionAll(block, select)
-    if (!r?.length) return
-
-    r.forEach((idx, j) => {
-      const target = blocks_obj[i][idx]
-
-      target.points = isAdd
-        ? target.points + select + '-'
-        : target.points.replace(`-${select}-`, '-')
-
-      if (first === i && j === 0) target.pointType = isAdd && 'first'
-
-      if (last === i && j === r.length - select.length)
-        target.pointType = isAdd && 'last'
-
-      if (justOne) target.pointType = isAdd && 'justOne'
-    })
-
-    if (render) {
-      blocks_render[i] = obj2render(blocks_obj[i])
-      blocks_jsx[i] = render2jsx(blocks_render[i], i)
-    }
-  })
-}
 // 部分渲染
 export default function App() {
   window.onbeforeunload = () => {
@@ -215,13 +168,33 @@ export default function App() {
   }
   useEffect(() => {
     html.scrollTop = Number(localStorage.getItem('scrollTop'))
+
+    _selects.forEach(select => changeData(select, 'add'))
   }, [])
 
-  const [selects, SETselects] = useState(_selects)
+  const [selects, SETselects] = useState<string[]>([])
+
+  const [flags, SETflags] = useState<JSX.Element[]>([])
+  useEffect(() => {
+    const flags = selects.flatMap(select =>
+      [
+        ...new Set(
+          getDoms(`#reader .-${select}-`).map(
+            e => ((e.offsetTop * 100) / 858647).toFixed(2) + '%'
+          )
+        ),
+      ].map((top, i) => (
+        <div className={`-${select}-`} key={select + i} style={{ top }} />
+      ))
+    )
+    SETflags(flags)
+  }, [selects])
 
   return (
     <>
-      <div id="reader" onClick={() => selectionHandle(selects, SETselects)}>
+      <div className="flags">{flags}</div>
+
+      <div id="reader" onClick={selectionHandle}>
         {blocks_jsx}
       </div>
 
@@ -231,47 +204,84 @@ export default function App() {
         {selects
           .map(
             select =>
-              `#reader:has([class*="-${select}-"]:hover) [class*="-${select}-"]`
+              `#root:has([class*="-${select}-"]:hover) [class*="-${select}-"]`
           )
-          .join(',\n') + '{ background:var(--hover) }'}
+          .join(',\n') + '{ background:var(--hover);}'}
+      </style>
+      <style>
+        {selects
+          .map(
+            select =>
+              `#root:has([class*="-${select}-"]:hover) .flags [class*="-${select}-"]`
+          )
+          .join(',\n') + '{ display: block;background: #000;}'}
       </style>
     </>
   )
-}
 
-// add/remove select
-function selectionHandle(
-  selects: string[],
-  SETselects: React.Dispatch<React.SetStateAction<string[]>>
-) {
-  const select = String(selection)
-  selection.removeAllRanges()
-  if (!select || select.includes('\n')) return
+  // 增量修改arr_block_jsx
+  function changeData(select: string, type: 'add' | 'del') {
+    // if (select === '的') return
 
-  if (selects.includes(select)) {
-    del()
-  } else {
-    add()
+    const isAdd = type === 'add' || undefined //add-true del-undefined
+    const first = blocks_str.findIndex(e => e.includes(select))
+    const last = (blocks_str as any).findLastIndex((e: string) =>
+      e.includes(select)
+    )
+    const justOne =
+      getWordPositionAll(txt, select)!.length / select.length === 1
 
-    const count = getWordPositionAll(txt, select)!.length / select.length
-    console.log(count)
+    blocks_str.forEach((block, i) => {
+      const r = getWordPositionAll(block, select)
+      if (!r?.length) return
 
-    // justOne
-    if (count === 1) {
-      setTimeout(del, 1000)
+      r.forEach((idx, j) => {
+        const target = blocks_obj[i][idx] // 修改blocks_obj
+
+        target.points = isAdd
+          ? target.points + select + '-'
+          : target.points.replace(`-${select}-`, '-')
+
+        if (first === i && j === 0) target.pointType = isAdd && 'first'
+
+        if (last === i && j === r.length - select.length)
+          target.pointType = isAdd && 'last'
+
+        if (justOne) target.pointType = isAdd && 'justOne'
+      })
+
+      // 应用blocks_obj
+      blocks_render[i] = obj2render(blocks_obj[i])
+      blocks_jsx[i] = render2jsx(blocks_render[i], i)
+    })
+
+    SETselects(selects =>
+      isAdd ? [...selects, select] : selects.filter(e => e !== select)
+    )
+  }
+
+  // add/remove select
+  function selectionHandle() {
+    const select = String(selection).replaceAll(' ', '')
+    selection.removeAllRanges()
+    if (!select || select.includes('\n')) return
+
+    if (selects.includes(select)) {
+      changeData(select, 'del')
+    } else {
+      changeData(select, 'add')
+
+      const count = getWordPositionAll(txt, select)!.length / select.length
+      console.log(count)
+
+      // justOne
+      if (count === 1) {
+        setTimeout(() => changeData(select, 'del'), 1000)
+      }
+
+      // justOneScreen
+      // 判断所有元素是否在屏幕内
     }
-
-    // justOneScreen
-    // 判断所有元素是否在屏幕内
-  }
-
-  function del() {
-    changeData(select, 'del')
-    SETselects(selects.filter(e => e !== select))
-  }
-  function add() {
-    changeData(select, 'add')
-    SETselects([...selects, select])
   }
 }
 
@@ -298,7 +308,7 @@ function jumpHandle({
 
   autoSelect = (() => {
     const { Control /* 到底 */, Shift /* 反向 */ } = keysHold
-    const doms = getDoms(`[class*='${select}']`)
+    const doms = getDoms(`#reader [class*='${select}']`)
 
     if (Control && Shift) return doms[0]
 
@@ -319,7 +329,7 @@ function jumpHandle({
 }
 
 const selection = getSelection()!
-const html = document.documentElement
+const html = getDom('#root')
 
 const keysHold: { [key: string]: boolean } = {}
 document.addEventListener('keyup', ({ key }) => {

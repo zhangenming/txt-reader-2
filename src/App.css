@@ -1,18 +1,38 @@
 :root {
-  scroll-behavior: smooth;
   font-family: fangsong;
-  font-size: 27px;
+  font-size: 2.5vw;
   color: white;
-  background-color: #7da1e9;
+  background: var(--bg);
+  --bg:#7da1e9;
   --select: #72fc09;
-  --select-active: #037005;
+  --select-active: black;
   --select-active-now-bg: #000fc3;
   --select-active-now-outline: #e7142f;
   --hover: brown;
 
   --spk: #0063a5;
+
 }
+body{
+  margin: 0;
+}
+#root{
+  scroll-behavior: smooth;
+  padding: 0 8px;
+  height: 100vh;
+  overflow-y: auto;
+  direction: rtl;
+}
+.flags div{
+  display: none;
+  position: absolute;
+  left: 6px;
+  width: 10px;
+  height: 1px;
+}
+
 #reader {
+  direction: ltr;
   word-break: break-word;
   /* word-spacing: initial; */
   white-space: break-spaces;
@@ -23,7 +43,7 @@
 
 /* block */
 #reader div {
-  background-color: #32624c;
+  background: #32624c;
   border-radius: 5px;
   padding: 0.3em 0.2em;
   margin-top: 1%;
@@ -31,13 +51,14 @@
 /* block段落 */
 #reader div:empty {
   /* height: 5em; */
-  background-color: #11f7cd;
+  background: #11f7cd;
   border-radius: 0px;
+  margin: 0;
 }
 
 /* spking */
 span[data-spking] {
-  background-color: var(--spk);
+  background: var(--spk);
   /* padding: 0.2em; */
 }
 
@@ -46,9 +67,9 @@ span[class][class] {
   color: var(--select);
 }
 span.activeSelect {
-  background-color: var(--select-active);
+  background: var(--select-active);
 }
-span.activeSelectNow.activeSelectNow {
+span.activeSelectNow.activeSelectNow.activeSelectNow.activeSelectNow.activeSelectNow.activeSelectNow {
   outline: var(--select-active-now-outline) solid 5px;
   background: var(--select-active-now-bg);
 }
@@ -66,17 +87,24 @@ span[point-type='justOne'] {
 
 ::selection {
   color: red;
-  background-color: deepskyblue;
+  background: deepskyblue;
 }
+
 ::-webkit-scrollbar {
-  width: 10px;
-  background-color: antiquewhite;
+  width: 20px;       
+  border-right: solid;
 }
 ::-webkit-scrollbar-thumb {
-  background-color-color: #eae;
-  border: solid;
-  color: red;
+  height: 11px;
+  background: white;
 }
-::-webkit-scrollbar-track {
-  background-color: antiquewhite;
+::-webkit-scrollbar-button{
+  width: 0;     
+  height: 0;          
 }
+
+
+::-webkit-scrollbar-thumb:vertical:hover {
+  background: yellow;
+  height: 20px;
+} 
