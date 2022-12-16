@@ -1,24 +1,26 @@
-const fileName = 'x'
+const _txt = '撒哈拉的故事 (三毛) (z-lib.org)'
 
 import { useEffect, useState } from 'react'
-import { getDom, getDoms, getWordPositionAll } from './utils'
+import { useFlags, useHover } from './hooksReader'
+import { getDom, getDoms, getWordPositionAll, hasFeature } from './utils'
 
 type block = {
   char: string
   spking: boolean
-  points: string
+  className: string
   pointType?: 'first' | 'last' | 'justOne'
   key?: number | string
 }[]
+
 const _selects: string[] =
   JSON.parse(String(localStorage.getItem('selects'))) || []
 
-let txt: string = (
-  await import(`../txt/${fileName}.txt?raw`)
-).default.replaceAll(/ *\n{1,2} *(?!\n)/gi, '\n    ')
+const txt: string = (await import(`../txt/${_txt}.txt?raw`)).default
+  .replaceAll('\r', '')
+  .replaceAll(/ * *\n{1,2} * *(?!\n)/gi, '\n    ')
 
 const blocks_str = txt.split('\n')
-;[].reduce((all: string[], now) => {
+;[''].reduce((all: string[], now) => {
   if (
     now.length != 0 &&
     all[all.length - 1]?.length != 0 &&
@@ -47,7 +49,7 @@ function txt2obj(block_txt: string) {
     const nextChar = arr[i + 1]
 
     if (curChar === '：' && nextChar != '“')
-      return { char: curChar, spking: true, points: '-' }
+      return { char: curChar, spking: true, className: '-' }
 
     // 依据 spk 标记分割; 能不能通过css/reg搞定？
     let spking = _spk
@@ -65,12 +67,15 @@ function txt2obj(block_txt: string) {
       if (
         sentenceFlag.includes(curChar) &&
         !sentenceFlag.includes(nextChar) &&
-        nextChar != '）'
-      )
+        nextChar != '）' &&
+        nextChar != '\r'
+      ) {
         // 排除……或者?!这种两个标点连在一起的
         curChar = curChar + '\n\n    '
+      }
 
-      // if (curChar == '”' && nextChar == '“') curChar = curChar + '\n    '
+      if (curChar == '”' && ![...sentenceFlag, '，'].includes(nextChar))
+        curChar = curChar + '\n    '
 
       // if (sentenceFlag.includes(preChar) && curChar === '”')
       //   curChar = curChar + '\n\n    '
@@ -112,7 +117,7 @@ function txt2obj(block_txt: string) {
 
     // if (curChar == '…' && preChar == '…' && nextChar != '”') curChar += ' \n'
 
-    return { char: curChar, spking, points: '-' }
+    return { char: curChar, spking, className: '-' }
   })
   return block
 }
@@ -121,10 +126,14 @@ function obj2render(obj: block) {
   const x = obj.reduce((all: block, cur, key) => {
     if (key === 0) return [{ ...cur, key }]
 
-    const { char, spking, points } = cur
+    const { char, spking, className } = cur
     const pre = all.at(-1)!
 
-    if (pre.spking === spking && pre.points === points && points.length !== 3) {
+    if (
+      pre.spking === spking &&
+      pre.className === className &&
+      className.length !== 3
+    ) {
       pre.char += char
     } else {
       all.push({ ...cur, key })
@@ -134,30 +143,25 @@ function obj2render(obj: block) {
   return x
 }
 function render2jsx(block: block, key: number) {
-  const res = block.map(({ spking, points, pointType, char, key }) =>
-    spking || points != '-' ? (
+  const res = block.map(({ spking, className, pointType, char, key }) =>
+    spking || className != '-' ? (
       <span
         key={key}
         {...(spking && { 'data-spking': '' })}
-        {...(points != '-' && {
-          className: points,
+        {...(className != '-' && {
+          className,
           onClick: e => jumpHandle(e.currentTarget),
           'point-type': pointType,
         })}
       >
-        {char}
+        {char.replaceAll('  “', '“')}
       </span>
     ) : (
-      char
+      char.replaceAll('  “', '“')
     )
   )
 
-  const marginBottom =
-    block.map(e => e.char.length).reduce((q, w) => q + w, 0) / 200 + 'em'
-
   return <div key={key}>{res}</div>
-
-  // return [res, '\n']
 }
 
 // 部分渲染
@@ -169,53 +173,26 @@ export default function App() {
   useEffect(() => {
     html.scrollTop = Number(localStorage.getItem('scrollTop'))
 
-    _selects.forEach(select => changeData(select, 'add'))
+    hasFeature('select') ||
+      _selects.forEach(select => changeData(select, 'add'))
   }, [])
 
   const [selects, SETselects] = useState<string[]>([])
 
-  const [flags, SETflags] = useState<JSX.Element[]>([])
-  useEffect(() => {
-    const flags = selects.flatMap(select =>
-      [
-        ...new Set(
-          getDoms(`#reader .-${select}-`).map(
-            e => ((e.offsetTop * 100) / 858647).toFixed(2) + '%'
-          )
-        ),
-      ].map((top, i) => (
-        <div className={`-${select}-`} key={select + i} style={{ top }} />
-      ))
-    )
-    SETflags(flags)
-  }, [selects])
+  const flags = useFlags(selects, hasFeature('close'))
+
+  const [onMouseMove, hoverStyle] = useHover(hasFeature('close'))
 
   return (
     <>
-      <div className="flags">{flags}</div>
-
-      <div id="reader" onClick={selectionHandle}>
+      <div id="reader" onClick={selectionHandle} onMouseMove={onMouseMove}>
         {blocks_jsx}
       </div>
 
+      <div className="flags">{flags}</div>
+
       {/* 延迟? 优先render reader */}
-      {/* 集合/独立 是否有区别 */}
-      <style>
-        {selects
-          .map(
-            select =>
-              `#root:has([class*="-${select}-"]:hover) [class*="-${select}-"]`
-          )
-          .join(',\n') + '{ background:var(--hover);}'}
-      </style>
-      <style>
-        {selects
-          .map(
-            select =>
-              `#root:has([class*="-${select}-"]:hover) .flags [class*="-${select}-"]`
-          )
-          .join(',\n') + '{ display: block;background: #000;}'}
-      </style>
+      <style>{hoverStyle}</style>
     </>
   )
 
@@ -238,9 +215,9 @@ export default function App() {
       r.forEach((idx, j) => {
         const target = blocks_obj[i][idx] // 修改blocks_obj
 
-        target.points = isAdd
-          ? target.points + select + '-'
-          : target.points.replace(`-${select}-`, '-')
+        target.className = isAdd
+          ? target.className + select + '-'
+          : target.className.replace(`-${select}-`, '-')
 
         if (first === i && j === 0) target.pointType = isAdd && 'first'
 
