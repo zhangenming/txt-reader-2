@@ -62,3 +62,11 @@ export const hasFeature = (f: string) => features.includes(f)
 // Object.entries(o).sort((q, w) => w[1] - q[1]).ll
 
 // console.timeEnd()
+
+export type block = {
+  char: string
+  spking: boolean
+  className: string
+  pointType?: 'first' | 'last' | 'justOne'
+  key?: number | string
+}[]

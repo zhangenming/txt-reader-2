@@ -1,52 +1,53 @@
 const _txt = '撒哈拉的故事 (三毛) (z-lib.org)'
 
-import { useEffect, useState } from 'react'
-import { useFlags, useHover } from './hooksReader'
-import { getDom, getDoms, getWordPositionAll, hasFeature } from './utils'
-
-type block = {
-  char: string
-  spking: boolean
-  className: string
-  pointType?: 'first' | 'last' | 'justOne'
-  key?: number | string
-}[]
-
-const _selects: string[] =
-  JSON.parse(String(localStorage.getItem('selects'))) || []
-
 const txt: string = (await import(`../txt/${_txt}.txt?raw`)).default
   .replaceAll('\r', '')
-  .replaceAll(/ * *\n{1,2} * *(?!\n)/gi, '\n    ')
+  .replaceAll(/ * *\n{1,2} * *(?!\n)/gi, '\n')
 
-const blocks_str = txt.split('\n')
-;[''].reduce((all: string[], now) => {
+import { useEffect, useState } from 'react'
+import { useFlags, useHover } from './hooksReader'
+import { getDom, getDoms, getWordPositionAll, hasFeature, block } from './utils'
+
+const mergeFlag = '-'
+const s1 = ' '.repeat(1)
+const s3 = ' '.repeat(3)
+const s4 = ' '.repeat(4)
+
+const blocks_string = txt.split('\n').map(e => e && s4 + e) //.reduce(merge, [])
+const blocks_object = blocks_string.map(txt2obj)
+const blocks_render = blocks_object.map(obj2render)
+const blocks_jsxdom = blocks_render.map(render2jsx)
+// cache jsx to disk? 压缩
+// const blocks_jsxdom = blocks_string.map(str => render2jsx(obj2render(txt2obj(str))))
+
+function merge(all: string[], now: string) {
+  // 合并多个block
   if (
-    now.length != 0 &&
-    all[all.length - 1]?.length != 0 &&
-    (getWordPositionAll(now, '。')?.length! <= 2 ||
-      (now.includes('“') && now.endsWith('”')))
+    now.includes('“') &&
+    now.endsWith('”') &&
+    all[all.length - 1].endsWith('。')
+    // now.length != 0 &&
+    // all[all.length - 1]?.length != 0 &&
+    // (getWordPositionAll(now, '。')?.length! <= 2 ||
+    //   (now.includes('“') && now.endsWith('”')))
   ) {
-    all[all.length - 1] += '-' + now.slice(4)
+    all[all.length - 1] = all[all.length - 1] + mergeFlag + now
   } else {
-    all.push(now)
+    all.push(s4 + now)
   }
   return all
-}, [])
-
-const blocks_obj = blocks_str.map(txt2obj)
-const blocks_render = blocks_obj.map(obj2render)
-const blocks_jsx = blocks_render.map(render2jsx)
-// cache jsx to disk? 压缩
-// const blocks_jsx = blocks_str.map(str => render2jsx(obj2render(txt2obj(str))))
-
+}
 function txt2obj(block_txt: string) {
+  const sentenceFlag = ['。', '？', '！', '…']
+  const allFlag = [...sentenceFlag, '）', '\r']
   let _spk = false
   let spk_0 = 0
+  // 分割单个block
   const block: block = [...block_txt].map((curChar, i, arr) => {
     const pre2Char = arr[i - 2]
     const preChar = arr[i - 1]
     const nextChar = arr[i + 1]
+    const next2Char = arr[i + 2]
 
     if (curChar === '：' && nextChar != '“')
       return { char: curChar, spking: true, className: '-' }
@@ -62,20 +63,26 @@ function txt2obj(block_txt: string) {
     // if (spk_0 % 2 === 1) _spk = false
 
     if (!spking && nextChar) {
-      const sentenceFlag = ['。', '？', '！', '…']
-
+      // 句号分割
       if (
         sentenceFlag.includes(curChar) &&
-        !sentenceFlag.includes(nextChar) &&
-        nextChar != '）' &&
-        nextChar != '\r'
-      ) {
         // 排除……或者?!这种两个标点连在一起的
-        curChar = curChar + '\n\n    '
+        !allFlag.includes(nextChar)
+      ) {
+        if (nextChar === mergeFlag) {
+          if (next2Char == '“') {
+            curChar = curChar + '\n' + s1
+          } else {
+            curChar = curChar + '\n\n' + s3
+          }
+        } else {
+          curChar = curChar + '\n\n' + s4
+        }
       }
 
-      if (curChar == '”' && ![...sentenceFlag, '，'].includes(nextChar))
-        curChar = curChar + '\n    '
+      if ([...sentenceFlag, '—'].includes(preChar) && curChar == '”') {
+        curChar = curChar + '\n' + s4
+      }
 
       // if (sentenceFlag.includes(preChar) && curChar === '”')
       //   curChar = curChar + '\n\n    '
@@ -173,8 +180,12 @@ export default function App() {
   useEffect(() => {
     html.scrollTop = Number(localStorage.getItem('scrollTop'))
 
-    hasFeature('select') ||
-      _selects.forEach(select => changeData(select, 'add'))
+    if (!hasFeature('select')) {
+      const selects: string[] = JSON.parse(
+        localStorage.getItem('selects') || '[]'
+      )
+      selects.forEach(select => changeData(select, 'add'))
+    }
   }, [])
 
   const [selects, SETselects] = useState<string[]>([])
@@ -186,7 +197,7 @@ export default function App() {
   return (
     <>
       <div id="reader" onClick={selectionHandle} onMouseMove={onMouseMove}>
-        {blocks_jsx}
+        {blocks_jsxdom}
       </div>
 
       <div className="flags">{flags}</div>
@@ -201,19 +212,19 @@ export default function App() {
     // if (select === '的') return
 
     const isAdd = type === 'add' || undefined //add-true del-undefined
-    const first = blocks_str.findIndex(e => e.includes(select))
-    const last = (blocks_str as any).findLastIndex((e: string) =>
+    const first = blocks_string.findIndex(e => e.includes(select))
+    const last = (blocks_string as any).findLastIndex((e: string) =>
       e.includes(select)
     )
     const justOne =
       getWordPositionAll(txt, select)!.length / select.length === 1
 
-    blocks_str.forEach((block, i) => {
+    blocks_string.forEach((block, i) => {
       const r = getWordPositionAll(block, select)
       if (!r?.length) return
 
       r.forEach((idx, j) => {
-        const target = blocks_obj[i][idx] // 修改blocks_obj
+        const target = blocks_object[i][idx] // 修改blocks_obj
 
         target.className = isAdd
           ? target.className + select + '-'
@@ -228,8 +239,8 @@ export default function App() {
       })
 
       // 应用blocks_obj
-      blocks_render[i] = obj2render(blocks_obj[i])
-      blocks_jsx[i] = render2jsx(blocks_render[i], i)
+      blocks_render[i] = obj2render(blocks_object[i])
+      blocks_jsxdom[i] = render2jsx(blocks_render[i], i)
     })
 
     SETselects(selects =>
