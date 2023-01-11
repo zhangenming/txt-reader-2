@@ -9,7 +9,6 @@
   --select-active-now-bg: #000fc3;
   --select-active-now-outline: #e7142f;
   --hover: brown;
-
   --spk: #0063a5;
 }
 body {
@@ -65,6 +64,7 @@ span[data-spking] {
 
 /* select */
 span[class] {
+  /* vertical-align: bottom; */
   color: var(--select);
 }
 span.activeSelect {
@@ -88,7 +88,7 @@ span[point-type='justOne'] {
 
 span[class*='-的-'],
 span[class*='-了-'] {
-  font-size: 1.5vw;
+  /* font-size: 1.5vw; */
   color: white;
   /* opacity: 0.5; 性能问题 */
 }

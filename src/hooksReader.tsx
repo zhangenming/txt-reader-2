@@ -1,14 +1,17 @@
-const H = 2009807
-
 import { useEffect, useState } from 'react'
-import { getDoms } from './utils'
+import { getDom, getDoms } from './utils'
 
 export function useFlags(selects: string[], close?: boolean) {
   if (close) return []
 
   const [flags, SETflags] = useState<JSX.Element[]>([])
+  const [percent, SETpercent] = useState('0%')
 
   useEffect(() => {
+    const H = getDom('#reader').clientHeight
+    const percent =
+      ((window.innerHeight * window.innerHeight) / H).toFixed(2) + 'px'
+
     const x = selects.reduce((all, now) => {
       const nowWrap = `-${now}-`
       getDoms(`#reader .${nowWrap}`)
@@ -28,9 +31,11 @@ export function useFlags(selects: string[], close?: boolean) {
         <div className={select} key={top} style={{ top }} />
       ))
     )
+
+    SETpercent(percent)
   }, [selects])
 
-  return flags
+  return [flags, percent] as const
 }
 
 export function useHover(close?: boolean) {

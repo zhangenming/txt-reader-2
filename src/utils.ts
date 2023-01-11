@@ -63,7 +63,7 @@ export const hasFeature = (f: string) => features.includes(f)
 
 // console.timeEnd()
 
-export type block = {
+export type Fragment = {
   char: string
   spking: boolean
   className: string

@@ -1,24 +1,32 @@
-const _txt = '撒哈拉的故事 (三毛) (z-lib.org)'
+// import snapshot from '../txt/三毛AOT'
+// cache to disk, 快照
+
+const _txt = hasFeature('short')
+  ? '你当像鸟飞往你的山 (塔拉．韦斯特弗 (Tara Westover)) (z-lib.org)'
+  : '显微镜下的大明 (马伯庸) (z-lib.org)'
 
 const txt: string = (await import(`../txt/${_txt}.txt?raw`)).default
   .replaceAll('\r', '')
-  .replaceAll(/ * *\n{1,2} * *(?!\n)/gi, '\n')
+  .replaceAll('	', '')
+  .replaceAll(/　* * *\n{1,2}　* * *(?!\n)/gi, '\n    ')
 
-import { useEffect, useState } from 'react'
+import { Dispatch, SetStateAction, useEffect, useState } from 'react'
+import { runWithTime } from './debug'
 import { useFlags, useHover } from './hooksReader'
-import { getDom, getDoms, getWordPositionAll, hasFeature, block } from './utils'
+import {
+  getDom,
+  getDoms,
+  getWordPositionAll,
+  hasFeature,
+  Fragment,
+} from './utils'
 
 const mergeFlag = '-'
 const s1 = ' '.repeat(1)
 const s3 = ' '.repeat(3)
 const s4 = ' '.repeat(4)
-
-const blocks_string = txt.split('\n').map(e => e && s4 + e) //.reduce(merge, [])
-const blocks_object = blocks_string.map(txt2obj)
-const blocks_render = blocks_object.map(obj2render)
-const blocks_jsxdom = blocks_render.map(render2jsx)
-// cache jsx to disk? 压缩
-// const blocks_jsxdom = blocks_string.map(str => render2jsx(obj2render(txt2obj(str))))
+const sentenceFlag = ['。', '？', '！', '…']
+const allFlag = [...sentenceFlag, '）', '\r']
 
 function merge(all: string[], now: string) {
   // 合并多个block
@@ -33,17 +41,28 @@ function merge(all: string[], now: string) {
   ) {
     all[all.length - 1] = all[all.length - 1] + mergeFlag + now
   } else {
-    all.push(s4 + now)
+    all.push(now)
   }
   return all
 }
-function txt2obj(block_txt: string) {
-  const sentenceFlag = ['。', '？', '！', '…']
-  const allFlag = [...sentenceFlag, '）', '\r']
+
+const strings = txt.split('\n') //.reduce(merge, [])
+const fragments: Fragment[] = strings.map(str2frag)
+const reader_renders = fragments.map(str2render)
+
+// call on init, 但过后select更改时 此对象会被副作用修改,mutable
+function str2frag(str: string) {
   let _spk = false
-  let spk_0 = 0
   // 分割单个block
-  const block: block = [...block_txt].map((curChar, i, arr) => {
+
+  str
+  // '自你决定去撒哈拉大漠后，我们的心就没有一天安静过，'
+
+  const strs = [...str]
+  // ['自', '你', '决', '定', '去', '撒', '哈', '拉', '大', '漠', '后', '，', '我','们', '的', '心', '就', '没', '有', '一', '天', '安', '静', '过', '，']
+
+  // 生成打了标记的对象, 之后select时, 增量修改此对象
+  const frag = strs.map((curChar, i, arr) => {
     const pre2Char = arr[i - 2]
     const preChar = arr[i - 1]
     const nextChar = arr[i + 1]
@@ -126,11 +145,14 @@ function txt2obj(block_txt: string) {
 
     return { char: curChar, spking, className: '-' }
   })
-  return block
+
+  return frag
 }
 
-function obj2render(obj: block) {
-  const x = obj.reduce((all: block, cur, key) => {
+// call on init & select
+function str2render(frag: Fragment, key: number, updata: any) {
+  // 根据标记合并同类项, 之后select时重新执行
+  const fragment = frag.reduce((all, cur, key) => {
     if (key === 0) return [{ ...cur, key }]
 
     const { char, spking, className } = cur
@@ -141,16 +163,15 @@ function obj2render(obj: block) {
       pre.className === className &&
       className.length !== 3
     ) {
-      pre.char += char
+      pre.char += char // meger
     } else {
-      all.push({ ...cur, key })
+      all.push({ ...cur, key }) // new
     }
     return all
-  }, [])
-  return x
-}
-function render2jsx(block: block, key: number) {
-  const res = block.map(({ spking, className, pointType, char, key }) =>
+  }, [] as Fragment)
+
+  // 生成结果
+  const render = fragment.map(({ spking, className, pointType, char, key }) =>
     spking || className != '-' ? (
       <span
         key={key}
@@ -167,15 +188,60 @@ function render2jsx(block: block, key: number) {
       char.replaceAll('  “', '“')
     )
   )
-
-  return <div key={key}>{res}</div>
+  const dom = <div key={key}>{render}</div>
+  if (updata === 'updata') reader_renders[key] = dom
+  return dom
 }
 
-// 部分渲染
+// select更改, 增量修改
+function changeSelect(
+  SETselects: Dispatch<SetStateAction<string[]>>,
+  select: string,
+  type: 'add' | 'del'
+) {
+  SETselects(selects =>
+    isAdd ? [...selects, select] : selects.filter(e => e !== select)
+  )
+  // if (select === '的') return
+
+  const isAdd = type === 'add' || undefined //add-true del-undefined
+  const first = strings.findIndex(e => e.includes(select))
+  const last = (strings as any).findLastIndex((e: string) => e.includes(select))
+  const justOne = getWordPositionAll(txt, select)!.length / select.length === 1
+
+  strings.forEach((Fragment, i) => {
+    const r = getWordPositionAll(Fragment, select)
+    if (!r?.length) return
+
+    // setFlag
+    r.forEach((idx, j) => {
+      const target = fragments[i][idx] // 修改paragraphs_obj
+
+      target.className = isAdd
+        ? target.className + select + '-'
+        : target.className.replace(`-${select}-`, '-')
+
+      if (first === i && j === 0) target.pointType = isAdd && 'first'
+
+      if (last === i && j === r.length - select.length)
+        target.pointType = isAdd && 'last'
+
+      if (justOne) target.pointType = isAdd && 'justOne'
+    })
+
+    // applyFlag
+    str2render(fragments[i], i, 'updata') // need batch when init with multi selects
+  })
+}
+
+// 分片渲染
 export default function App() {
   window.onbeforeunload = () => {
     localStorage.setItem('scrollTop', String(html.scrollTop))
-    localStorage.setItem('selects', JSON.stringify(selects))
+
+    hasFeature('clear')
+      ? localStorage.setItem('selects', JSON.stringify([]))
+      : localStorage.setItem('selects', JSON.stringify(selects))
   }
   useEffect(() => {
     html.scrollTop = Number(localStorage.getItem('scrollTop'))
@@ -184,69 +250,41 @@ export default function App() {
       const selects: string[] = JSON.parse(
         localStorage.getItem('selects') || '[]'
       )
-      selects.forEach(select => changeData(select, 'add'))
+      ;[...new Set([...selects])].forEach(select =>
+        changeSelect(SETselects, select, 'add')
+      )
     }
   }, [])
 
   const [selects, SETselects] = useState<string[]>([])
 
-  const flags = useFlags(selects, hasFeature('close'))
+  const [flags, percent] = useFlags(selects, hasFeature('close'))
 
   const [onMouseMove, hoverStyle] = useHover(hasFeature('close'))
 
   return (
     <>
-      <div id="reader" onClick={selectionHandle} onMouseMove={onMouseMove}>
-        {blocks_jsxdom}
+      <div
+        id="reader"
+        onClick={() => runWithTime(selectionHandle)}
+        onMouseMove={onMouseMove}
+      >
+        {reader_renders}
       </div>
 
       <div className="flags">{flags}</div>
 
       {/* 延迟? 优先render reader */}
-      <style>{hoverStyle}</style>
+      <style>
+        {hoverStyle}
+        {/* {`::-webkit-scrollbar-thumb {
+            height: ${percent};
+            border-top: ${percent} solid red;
+
+        }`} */}
+      </style>
     </>
   )
-
-  // 增量修改arr_block_jsx
-  function changeData(select: string, type: 'add' | 'del') {
-    // if (select === '的') return
-
-    const isAdd = type === 'add' || undefined //add-true del-undefined
-    const first = blocks_string.findIndex(e => e.includes(select))
-    const last = (blocks_string as any).findLastIndex((e: string) =>
-      e.includes(select)
-    )
-    const justOne =
-      getWordPositionAll(txt, select)!.length / select.length === 1
-
-    blocks_string.forEach((block, i) => {
-      const r = getWordPositionAll(block, select)
-      if (!r?.length) return
-
-      r.forEach((idx, j) => {
-        const target = blocks_object[i][idx] // 修改blocks_obj
-
-        target.className = isAdd
-          ? target.className + select + '-'
-          : target.className.replace(`-${select}-`, '-')
-
-        if (first === i && j === 0) target.pointType = isAdd && 'first'
-
-        if (last === i && j === r.length - select.length)
-          target.pointType = isAdd && 'last'
-
-        if (justOne) target.pointType = isAdd && 'justOne'
-      })
-
-      // 应用blocks_obj
-      blocks_render[i] = obj2render(blocks_object[i])
-      blocks_jsxdom[i] = render2jsx(blocks_render[i], i)
-    })
-
-    SETselects(selects =>
-      isAdd ? [...selects, select] : selects.filter(e => e !== select)
-    )
-  }
 
   // add/remove select
   function selectionHandle() {
@@ -255,16 +293,16 @@ export default function App() {
     if (!select || select.includes('\n')) return
 
     if (selects.includes(select)) {
-      changeData(select, 'del')
+      changeSelect(SETselects, select, 'del')
     } else {
-      changeData(select, 'add')
+      changeSelect(SETselects, select, 'add')
 
       const count = getWordPositionAll(txt, select)!.length / select.length
       console.log(count)
 
       // justOne
       if (count === 1) {
-        setTimeout(() => changeData(select, 'del'), 1000)
+        setTimeout(() => changeSelect(SETselects, select, 'del'), 1000)
       }
 
       // justOneScreen
